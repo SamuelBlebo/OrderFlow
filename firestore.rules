@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers -------------------------------------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // The single gate for tenant isolation: your profile must name this org.
+    function memberOf(orgId) {
+      return signedIn() && profile().orgId == orgId;
+    }
+
+    function hasRole(orgId, roles) {
+      return memberOf(orgId) && profile().role in roles;
+    }
+
+    // ---- users ---------------------------------------------------------
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid;
+      // A user can never move themselves into another tenant or promote themselves.
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.orgId == resource.data.orgId
+        && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+    }
+
+    // ---- organizations -------------------------------------------------
+    match /organizations/{orgId} {
+      allow read: if memberOf(orgId);
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if hasRole(orgId, ['owner', 'admin']);
+      allow delete: if false;
+
+      // ---- tenant-owned data ------------------------------------------
+      match /products/{productId} {
+        allow read: if memberOf(orgId);
+        allow write: if hasRole(orgId, ['owner', 'admin']);
+      }
+
+      match /customers/{customerId} {
+        allow read: if memberOf(orgId);
+        // Customer records are written by Cloud Functions from inbound WhatsApp
+        // messages, never by the browser.
+        allow write: if false;
+      }
+
+      match /orders/{orderId} {
+        allow read: if memberOf(orgId);
+        allow create: if false; // orders originate from the WhatsApp webhook
+        allow update: if memberOf(orgId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'note', 'updatedAt']);
+        allow delete: if false;
+      }
+    }
+
+    // Anything not matched above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
