@@ -3,9 +3,9 @@ import { z } from 'zod';
 export type OrderStatus =
   | 'pending'
   | 'confirmed'
-  | 'packed'
-  | 'delivering'
-  | 'completed'
+  | 'preparing'
+  | 'out_for_delivery'
+  | 'delivered'
   | 'cancelled';
 
 export interface OrderItem {

@@ -12,9 +12,14 @@ export const pendingOrdersQuery = (orgId: string) =>
   query(ordersRef(orgId), where('status', '==', 'pending'), orderBy('createdAt', 'desc'));
 
 /**
- * Only the status changes here. The customer's WhatsApp message is sent by a
- * Cloud Function watching this document, so the browser never holds a Meta token.
+ * Only status (and an optional note) change here. The customer's WhatsApp
+ * message is sent by a Cloud Function watching this document, so the browser
+ * never holds a Meta token.
  */
-export function setOrderStatus(orgId: string, orderId: string, status: OrderStatus) {
-  return updateDoc(orderRef(orgId, orderId), { status, updatedAt: serverTimestamp() } as never);
+export function setOrderStatus(orgId: string, orderId: string, status: OrderStatus, note?: string | null) {
+  return updateDoc(orderRef(orgId, orderId), {
+    status,
+    ...(note !== undefined ? { note } : {}),
+    updatedAt: serverTimestamp(),
+  } as never);
 }

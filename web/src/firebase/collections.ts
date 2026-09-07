@@ -5,7 +5,7 @@ import {
   type DocumentReference,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Customer, Order, Organization, Product, UserProfile } from '@/types';
+import type { Customer, Order, OrderItem, Organization, Product, UserProfile } from '@/types';
 
 /**
  * Every tenant-owned collection hangs off /organizations/{orgId}.
@@ -18,6 +18,7 @@ export const paths = {
   products: 'products',
   customers: 'customers',
   orders: 'orders',
+  orderItems: 'orderItems',
 } as const;
 
 export const orgsRef = () =>
@@ -43,6 +44,21 @@ export const ordersRef = (orgId: string) =>
 
 export const orderRef = (orgId: string, orderId: string) =>
   doc(db, paths.organizations, orgId, paths.orders, orderId) as DocumentReference<Order>;
+
+/**
+ * Normalized copy of an order's own `items` array, written once by the bot.
+ * The dashboard renders `order.items` directly — this exists for the case
+ * that needs one item on its own (a per-product query, a future edit flow).
+ */
+export const orderItemsRef = (orgId: string, orderId: string) =>
+  collection(
+    db,
+    paths.organizations,
+    orgId,
+    paths.orders,
+    orderId,
+    paths.orderItems,
+  ) as CollectionReference<OrderItem>;
 
 /** Storage path for a product photo, also tenant-scoped. */
 export const productImagePath = (orgId: string, productId: string, fileName: string) =>

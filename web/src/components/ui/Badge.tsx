@@ -4,7 +4,7 @@ import type { OrderStatus } from '@/types';
 const STATUS_STYLES: Record<OrderStatus, string> = {
   pending: 'bg-warn/10 text-warn',
   confirmed: 'bg-info/10 text-info',
-  packed: 'bg-brand/10 text-brand',
+  preparing: 'bg-brand/10 text-brand',
   out_for_delivery: 'bg-brand/10 text-brand',
   delivered: 'bg-brand/20 text-brand',
   cancelled: 'bg-danger/10 text-danger',
@@ -13,7 +13,7 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
-  packed: 'Packed',
+  preparing: 'Preparing',
   out_for_delivery: 'Out for delivery',
   delivered: 'Delivered',
   cancelled: 'Cancelled',

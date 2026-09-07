@@ -5,6 +5,7 @@ import {
   customersRef,
   loadOrgProfile,
   money,
+  orderItemsRef,
   orgRef,
   ordersRef,
   productsRef,
@@ -407,9 +408,23 @@ async function placeOrder(ctx: Ctx): Promise<Partial<Session>> {
       deliveryFee,
       total,
       currency: ctx.profile.currency,
+      channel: 'whatsapp',
+      note: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
+    // Normalized copy of the same line items — see orderItemsRef in tenant.ts.
+    for (const item of cart) {
+      tx.set(orderItemsRef(ctx.orgId, orderDoc.id).doc(), {
+        orderId: orderDoc.id,
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        subtotal: item.price * item.quantity,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
     tx.set(
       customerDoc,
       {

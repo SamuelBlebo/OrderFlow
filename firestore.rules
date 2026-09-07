@@ -60,6 +60,13 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['status', 'note', 'updatedAt']);
         allow delete: if false;
+
+        // Normalized copy of the order's own `items` array — same origin,
+        // same access: written once by the bot, read-only to the dashboard.
+        match /orderItems/{itemId} {
+          allow read: if memberOf(orgId);
+          allow write: if false;
+        }
       }
     }
 

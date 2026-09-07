@@ -3,15 +3,16 @@ import type { Timestamps } from './common';
 export type OrderStatus =
   | 'pending'
   | 'confirmed'
-  | 'packed'
+  | 'preparing'
   | 'out_for_delivery'
   | 'delivered'
   | 'cancelled';
 
+/** Sequential happy path. Cancellation is a side branch, not a step in it. */
 export const ORDER_FLOW: OrderStatus[] = [
   'pending',
   'confirmed',
-  'packed',
+  'preparing',
   'out_for_delivery',
   'delivered',
 ];
@@ -19,12 +20,12 @@ export const ORDER_FLOW: OrderStatus[] = [
 export interface OrderItem {
   productId: string;
   name: string;
-  unitPrice: number;
+  price: number;
   quantity: number;
 }
 
 export interface Order extends Timestamps {
-  reference: string;
+  number: number;
   customerId: string;
   customerName: string;
   customerPhone: string;
@@ -33,6 +34,7 @@ export interface Order extends Timestamps {
   subtotal: number;
   deliveryFee: number;
   total: number;
+  currency: string;
   status: OrderStatus;
   channel: 'whatsapp' | 'manual';
   note: string | null;

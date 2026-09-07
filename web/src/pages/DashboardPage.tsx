@@ -146,7 +146,7 @@ export function DashboardPage() {
               <tbody>
                 {recentRows.map((order) => (
                   <tr key={order.id} className="border-b border-line last:border-0">
-                    <td className="px-5 py-3 font-semibold text-ink">{order.reference}</td>
+                    <td className="px-5 py-3 font-semibold text-ink">#{order.number}</td>
                     <td className="px-5 py-3 text-muted">{order.customerName}</td>
                     <td className="px-5 py-3 font-semibold text-ink">
                       {formatMoney(order.total, org!.currency)}

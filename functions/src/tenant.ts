@@ -6,6 +6,14 @@ export const db = () => getFirestore();
 export const orgRef = (orgId: string) => db().collection('organizations').doc(orgId);
 export const productsRef = (orgId: string) => orgRef(orgId).collection('products');
 export const ordersRef = (orgId: string) => orgRef(orgId).collection('orders');
+/**
+ * Line items also live embedded on the order document (`items: OrderItem[]`)
+ * for cheap reads — this normalized copy exists so an item can be queried or
+ * updated on its own without touching the order. Written once, at order
+ * creation, alongside the embedded array; never mutated afterward.
+ */
+export const orderItemsRef = (orgId: string, orderId: string) =>
+  ordersRef(orgId).doc(orderId).collection('orderItems');
 export const customersRef = (orgId: string) => orgRef(orgId).collection('customers');
 export const sessionsRef = (orgId: string) => orgRef(orgId).collection('sessions');
 
