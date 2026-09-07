@@ -21,5 +21,15 @@ export const statusUpdate: Record<OrderStatus, (n: number) => string | null> = {
   cancelled: (n) => `Order #${n} has been cancelled. Message us if this is a mistake.`,
 };
 
+/** Short present-tense label for "2 Track Order" — a snapshot, not a notification. */
+export const STATUS_LABEL: Record<OrderStatus, string> = {
+  pending: 'Pending confirmation',
+  confirmed: 'Confirmed — being prepared',
+  packed: 'Packed — waiting for the rider',
+  delivering: 'Out for delivery',
+  completed: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
 export const HELP =
-  'Send "hi" to start over, "items" to see what we sell, or "cart" to check what you have picked.';
+  'Send "hi" to see the menu, "1" to shop, "2" to track your last order, or "3" to reach us.';

@@ -1,6 +1,6 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
-import { loadCredentials } from '../tenant';
+import { loadCredentialsForOrg } from '../tenant';
 import { sendText } from '../whatsapp/client';
 import { statusUpdate } from '../bot/copy';
 import type { OrderStatus } from '../types';
@@ -24,7 +24,7 @@ export const onOrderStatusChange = onDocumentUpdated(
     if (!message) return;
 
     const orgId = event.params.orgId;
-    const creds = await loadCredentials(orgId);
+    const creds = await loadCredentialsForOrg(orgId);
     if (!creds) {
       logger.warn('Status changed but the tenant has no WhatsApp connection', { orgId });
       return;

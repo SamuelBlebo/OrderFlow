@@ -31,6 +31,7 @@ export interface WhatsAppAccount {
 export interface Organization extends Timestamps {
   name: string;
   slug: string;
+  phone: string | null;
   category: BusinessCategory;
   currency: 'GHS' | 'NGN' | 'KES' | 'USD';
   deliveryFee: number;

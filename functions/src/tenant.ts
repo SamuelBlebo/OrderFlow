@@ -1,5 +1,5 @@
 import { getFirestore } from 'firebase-admin/firestore';
-import type { WhatsappCredentials } from './types';
+import type { WhatsappAccount } from './types';
 
 export const db = () => getFirestore();
 
@@ -8,18 +8,29 @@ export const productsRef = (orgId: string) => orgRef(orgId).collection('products
 export const ordersRef = (orgId: string) => orgRef(orgId).collection('orders');
 export const customersRef = (orgId: string) => orgRef(orgId).collection('customers');
 export const sessionsRef = (orgId: string) => orgRef(orgId).collection('sessions');
-export const credentialsRef = (orgId: string) => orgRef(orgId).collection('private').doc('whatsapp');
-export const routingRef = (phoneNumberId: string) => db().collection('waRouting').doc(phoneNumberId);
 
-/** Maps an inbound Meta phone_number_id to exactly one tenant. */
-export async function resolveOrgId(phoneNumberId: string): Promise<string | null> {
-  const snap = await routingRef(phoneNumberId).get();
-  return snap.exists ? ((snap.get('orgId') as string) ?? null) : null;
+/**
+ * Every connected number lives here, keyed by its Meta phone_number_id — the
+ * one thing every inbound webhook call carries. One read resolves both the
+ * tenant and the credentials needed to reply. This is a top-level collection
+ * with no client-facing Firestore rule, so the access token it holds is only
+ * ever reachable through the Admin SDK these Cloud Functions run under.
+ */
+export const whatsappAccountsRef = () => db().collection('whatsappAccounts');
+export const whatsappAccountRef = (phoneNumberId: string) => whatsappAccountsRef().doc(phoneNumberId);
+
+/** Resolves an inbound phone_number_id straight to its tenant + credentials. */
+export async function loadWhatsappAccount(phoneNumberId: string): Promise<WhatsappAccount | null> {
+  const snap = await whatsappAccountRef(phoneNumberId).get();
+  return snap.exists ? (snap.data() as WhatsappAccount) : null;
 }
 
-export async function loadCredentials(orgId: string): Promise<WhatsappCredentials | null> {
-  const snap = await credentialsRef(orgId).get();
-  return snap.exists ? (snap.data() as WhatsappCredentials) : null;
+/** For code that only knows the tenant — order-status triggers, dashboard callables. */
+export async function loadCredentialsForOrg(orgId: string): Promise<WhatsappAccount | null> {
+  const org = await orgRef(orgId).get();
+  const phoneNumberId = org.get('whatsapp.phoneNumberId') as string | undefined;
+  if (!phoneNumberId) return null;
+  return loadWhatsappAccount(phoneNumberId);
 }
 
 export interface OrgProfile {

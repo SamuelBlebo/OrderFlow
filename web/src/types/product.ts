@@ -8,5 +8,5 @@ export interface Product extends Timestamps {
   category: string;
   imageUrl: string | null;
   imagePath: string | null;
-  published: boolean;
+  active: boolean;
 }

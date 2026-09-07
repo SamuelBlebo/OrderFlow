@@ -5,6 +5,10 @@ const MESSAGES: Record<string, string> = {
   'auth/email-already-in-use': 'That email already has an account. Sign in instead.',
   'auth/weak-password': 'Choose a password with at least 8 characters.',
   'auth/too-many-requests': 'Too many attempts. Wait a minute, then try again.',
+  'auth/popup-closed-by-user': 'Sign-in was cancelled.',
+  'auth/popup-blocked': 'Your browser blocked the sign-in popup. Allow popups and try again.',
+  'auth/account-exists-with-different-credential':
+    'That email already has an account using a different sign-in method.',
   'permission-denied': 'This data belongs to another business.',
 };
 

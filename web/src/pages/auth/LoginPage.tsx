@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Input } from '@/components/ui';
-import { signIn } from '@/services';
+import { signIn, signInWithGoogle } from '@/services';
 import { loginSchema, type LoginInput } from '@/utils/validation';
 import { toMessage } from '@/utils/errors';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -25,6 +26,19 @@ export function LoginPage() {
       setFormError(toMessage(error));
     }
   });
+
+  const onGoogleClick = async () => {
+    setFormError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      navigate('/', { replace: true });
+    } catch (error) {
+      setFormError(toMessage(error));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -58,6 +72,22 @@ export function LoginPage() {
           Sign in
         </Button>
       </form>
+
+      <div className="my-5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-line" />
+        <span className="text-xs font-medium uppercase text-muted">or</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <Button
+        type="button"
+        variant="secondary"
+        fullWidth
+        loading={googleLoading}
+        onClick={onGoogleClick}
+      >
+        Continue with Google
+      </Button>
 
       <p className="mt-6 text-sm text-muted">
         New here?{' '}

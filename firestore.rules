@@ -63,6 +63,16 @@ service cloud.firestore {
       }
     }
 
+    // ---- whatsappAccounts -----------------------------------------------
+    // Holds the Meta access token per connected number. Written only by Cloud
+    // Functions via the Admin SDK (connectWhatsapp/disconnectWhatsapp,
+    // functions/src/http/organizations.ts), which bypasses these rules
+    // entirely — this block exists to document that intent, since the
+    // catch-all below would deny it anyway.
+    match /whatsappAccounts/{phoneNumberId} {
+      allow read, write: if false;
+    }
+
     // Anything not matched above is denied.
     match /{document=**} {
       allow read, write: if false;

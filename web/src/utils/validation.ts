@@ -9,8 +9,15 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const registerSchema = loginSchema.extend({
   fullName: z.string().min(2, 'Enter your name'),
   businessName: z.string().min(2, 'Enter your business name'),
+  phone: z.string().min(7, 'Enter a valid phone number').optional().or(z.literal('')),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+export const onboardingSchema = z.object({
+  businessName: z.string().min(2, 'Enter your business name'),
+  phone: z.string().min(7, 'Enter a valid phone number').optional().or(z.literal('')),
+});
+export type OnboardingInput = z.infer<typeof onboardingSchema>;
 
 export const productSchema = z.object({
   name: z.string().min(2, 'Enter a product name'),
@@ -18,6 +25,6 @@ export const productSchema = z.object({
   price: z.coerce.number().positive('Price must be more than 0'),
   stock: z.coerce.number().int('Whole numbers only').min(0, 'Stock cannot be negative'),
   category: z.string().min(1, 'Enter a category'),
-  published: z.boolean().default(true),
+  active: z.boolean().default(true),
 });
 export type ProductInput = z.infer<typeof productSchema>;

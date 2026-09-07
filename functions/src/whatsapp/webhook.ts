@@ -1,7 +1,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { META_APP_SECRET, WHATSAPP_VERIFY_TOKEN } from '../config';
-import { loadCredentials, resolveOrgId } from '../tenant';
+import { loadWhatsappAccount, whatsappAccountRef } from '../tenant';
 import { handleMessage } from '../bot/engine';
 import { markAsRead } from './client';
 import { verifySignature } from './signature';
@@ -63,24 +63,25 @@ async function processChange(value?: WebhookValue): Promise<void> {
   const phoneNumberId = value?.metadata?.phone_number_id;
   if (!phoneNumberId) return;
 
-  const orgId = await resolveOrgId(phoneNumberId);
-  if (!orgId) {
+  const account = await loadWhatsappAccount(phoneNumberId);
+  if (!account) {
     logger.warn('Inbound message for an unknown number', { phoneNumberId });
     return;
   }
 
-  const creds = await loadCredentials(orgId);
-  if (!creds) {
-    logger.warn('Tenant has no stored WhatsApp credentials', { orgId });
-    return;
+  // The Graph API probe at connect-time confirms the token works; this is
+  // proof the webhook itself is actually receiving that account's traffic.
+  if (account.webhookStatus !== 'verified') {
+    await whatsappAccountRef(phoneNumberId).update({ webhookStatus: 'verified' });
   }
 
+  const orgId = account.organizationId;
   const profileName = value?.contacts?.[0]?.profile?.name ?? '';
 
   for (const message of messages) {
     try {
-      await markAsRead(creds, message.id);
-      await handleMessage(orgId, creds, message, profileName);
+      await markAsRead(account, message.id);
+      await handleMessage(orgId, account, message, profileName);
     } catch (err) {
       logger.error('Bot failed on a message', { orgId, messageId: message.id, err });
     }

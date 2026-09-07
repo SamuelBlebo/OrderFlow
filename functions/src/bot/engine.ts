@@ -12,8 +12,8 @@ import {
   type OrgProfile,
 } from '../tenant';
 import { sendButtons, sendImage, sendList, sendText } from '../whatsapp/client';
-import type { InboundMessage, OrderItem, Session, WhatsappCredentials } from '../types';
-import { BUTTONS, HELP } from './copy';
+import type { InboundMessage, OrderItem, OrderStatus, Session, WhatsappCredentials } from '../types';
+import { BUTTONS, HELP, STATUS_LABEL } from './copy';
 
 const EMPTY_SESSION: Omit<Session, 'updatedAt'> = {
   step: 'idle',
@@ -109,7 +109,11 @@ async function route(ctx: Ctx, intent: Intent): Promise<Partial<Session>> {
 
   // Global shortcuts always win, even mid-checkout.
   if (GREETINGS.includes(lower)) return showWelcome(ctx);
-  if (['items', 'menu', 'catalogue', 'catalog', 'products'].includes(lower)) return showCatalog(ctx, 0);
+  if (['1', 'shop', 'items', 'menu', 'catalogue', 'catalog', 'products'].includes(lower)) {
+    return showCatalog(ctx, 0);
+  }
+  if (['2', 'track order', 'track'].includes(lower)) return showOrderStatus(ctx);
+  if (['3', 'contact seller', 'contact', 'seller'].includes(lower)) return connectHuman(ctx);
   if (lower === 'cart') return showCart(ctx);
   if (['cancel', 'stop'].includes(lower)) return resetTo(ctx, 'No problem, we cleared that.');
 
@@ -146,15 +150,34 @@ async function handleAction(ctx: Ctx, id: string): Promise<Partial<Session>> {
 /* --------------------------------- Screens -------------------------------- */
 
 async function showWelcome(ctx: Ctx): Promise<Partial<Session>> {
-  await sendButtons(ctx.creds, ctx.waId, {
-    header: ctx.profile.name,
-    body: ctx.profile.greeting,
-    buttons: [
-      { id: BUTTONS.browse, title: 'See items' },
-      { id: BUTTONS.cart, title: 'My cart' },
-      { id: BUTTONS.human, title: 'Talk to us' },
-    ],
-  });
+  await sendText(ctx.creds, ctx.waId, 'Welcome. Reply:\n1 Shop\n2 Track Order\n3 Contact Seller');
+  return { step: 'idle' };
+}
+
+/** "2 Track Order" — the customer's most recent order, by their WhatsApp id. */
+async function showOrderStatus(ctx: Ctx): Promise<Partial<Session>> {
+  const snap = await ordersRef(ctx.orgId)
+    .where('customerId', '==', ctx.waId)
+    .orderBy('createdAt', 'desc')
+    .limit(1)
+    .get();
+
+  if (snap.empty) {
+    await sendText(ctx.creds, ctx.waId, 'You have no orders with us yet. Reply 1 to start shopping.');
+    return { step: 'idle' };
+  }
+
+  const order = snap.docs[0];
+  const number = order.get('number') as number;
+  const status = order.get('status') as OrderStatus;
+  const total = order.get('total') as number;
+  const currency = (order.get('currency') as string | undefined) ?? ctx.profile.currency;
+
+  await sendText(
+    ctx.creds,
+    ctx.waId,
+    `Order #${number}\nStatus: ${STATUS_LABEL[status] ?? status}\nTotal: ${money(total, currency)}`,
+  );
   return { step: 'idle' };
 }
 

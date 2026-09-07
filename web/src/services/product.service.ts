@@ -7,33 +7,78 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { productRef, productsRef } from '@/firebase';
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { productImagePath, productRef, productsRef, storage } from '@/firebase';
 import type { ProductInput } from '@/utils/validation';
+
+/** At or below this many units left, a product counts as low stock on the dashboard. */
+export const LOW_STOCK_THRESHOLD = 5;
 
 export const productsQuery = (orgId: string) =>
   query(productsRef(orgId), orderBy('createdAt', 'desc'));
 
-/** What the WhatsApp bot is allowed to show a customer. */
-export const publishedProductsQuery = (orgId: string) =>
-  query(productsRef(orgId), where('published', '==', true), orderBy('name'));
+/** What the WhatsApp bot is allowed to show a customer — mirrors the `active` check in the bot engine. */
+export const activeProductsQuery = (orgId: string) =>
+  query(productsRef(orgId), where('active', '==', true), orderBy('name'));
 
-export function createProduct(orgId: string, input: ProductInput) {
-  return addDoc(productsRef(orgId), {
+async function uploadProductImage(orgId: string, productId: string, file: File) {
+  const path = productImagePath(orgId, productId, file.name);
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  const imageUrl = await getDownloadURL(storageRef);
+  return { imageUrl, imagePath: path };
+}
+
+function deleteProductImage(imagePath: string) {
+  return deleteObject(ref(storage, imagePath)).catch(() => {
+    // Already gone, or never fully uploaded — nothing to clean up.
+  });
+}
+
+export async function createProduct(orgId: string, input: ProductInput, imageFile?: File | null) {
+  const created = await addDoc(productsRef(orgId), {
     ...input,
     imageUrl: null,
     imagePath: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   } as never);
+
+  if (imageFile) {
+    const { imageUrl, imagePath } = await uploadProductImage(orgId, created.id, imageFile);
+    await updateDoc(productRef(orgId, created.id), { imageUrl, imagePath } as never);
+  }
+
+  return created.id;
 }
 
-export function updateProduct(orgId: string, productId: string, patch: Partial<ProductInput>) {
-  return updateDoc(productRef(orgId, productId), {
-    ...patch,
-    updatedAt: serverTimestamp(),
-  } as never);
+/** Pass `imageChange` only when the photo itself is changing: a new file, or an explicit removal. */
+export type ProductImageChange = { file: File } | { remove: true };
+
+export async function updateProduct(
+  orgId: string,
+  productId: string,
+  patch: Partial<ProductInput>,
+  imageChange?: ProductImageChange | null,
+  previousImagePath?: string | null,
+) {
+  const updates: Record<string, unknown> = { ...patch, updatedAt: serverTimestamp() };
+
+  if (imageChange && 'file' in imageChange) {
+    const { imageUrl, imagePath } = await uploadProductImage(orgId, productId, imageChange.file);
+    updates.imageUrl = imageUrl;
+    updates.imagePath = imagePath;
+    if (previousImagePath) await deleteProductImage(previousImagePath);
+  } else if (imageChange && 'remove' in imageChange) {
+    updates.imageUrl = null;
+    updates.imagePath = null;
+    if (previousImagePath) await deleteProductImage(previousImagePath);
+  }
+
+  return updateDoc(productRef(orgId, productId), updates as never);
 }
 
-export function deleteProduct(orgId: string, productId: string) {
+export async function deleteProduct(orgId: string, productId: string, imagePath?: string | null) {
+  if (imagePath) await deleteProductImage(imagePath);
   return deleteDoc(productRef(orgId, productId));
 }

@@ -6,12 +6,14 @@ import type { Organization } from '@/types';
 interface CreateOrgInput {
   name: string;
   ownerUid: string;
+  phone?: string | null;
 }
 
-export async function createOrganization({ name, ownerUid }: CreateOrgInput): Promise<string> {
+export async function createOrganization({ name, ownerUid, phone = null }: CreateOrgInput): Promise<string> {
   const ref = await addDoc(orgsRef(), {
     name,
     slug: slugify(name),
+    phone,
     category: 'other',
     currency: 'GHS',
     deliveryFee: 0,

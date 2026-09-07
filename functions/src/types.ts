@@ -34,11 +34,24 @@ export interface Session {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
+/** What every outbound Graph API call needs. */
 export interface WhatsappCredentials {
   phoneNumberId: string;
-  wabaId: string;
+  businessAccountId: string;
   displayPhone: string;
   accessToken: string;
+}
+
+export type WebhookStatus = 'pending' | 'verified' | 'disconnected';
+
+/**
+ * The `whatsappAccounts/{phoneNumberId}` document — the one record an inbound
+ * webhook call resolves to get both the tenant and everything needed to reply.
+ */
+export interface WhatsappAccount extends WhatsappCredentials {
+  organizationId: string;
+  webhookStatus: WebhookStatus;
+  connectedAt?: FirebaseFirestore.Timestamp;
 }
 
 /* ------------------------------ Callable input ----------------------------- */
@@ -50,7 +63,7 @@ export const createOrgInput = z.object({
 
 export const connectWhatsappInput = z.object({
   phoneNumberId: z.string().min(5).max(64),
-  wabaId: z.string().min(5).max(64),
+  businessAccountId: z.string().min(5).max(64),
   displayPhone: z.string().regex(/^\+[0-9]{8,15}$/),
   accessToken: z.string().min(20).max(500),
 });

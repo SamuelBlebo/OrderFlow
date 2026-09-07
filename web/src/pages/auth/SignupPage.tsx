@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Input } from '@/components/ui';
-import { registerMerchant } from '@/services';
+import { registerMerchant, signInWithGoogle } from '@/services';
 import { registerSchema, type RegisterInput } from '@/utils/validation';
 import { toMessage } from '@/utils/errors';
 
 export function SignupPage() {
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -25,6 +26,19 @@ export function SignupPage() {
       setFormError(toMessage(error));
     }
   });
+
+  const onGoogleClick = async () => {
+    setFormError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      navigate('/', { replace: true });
+    } catch (error) {
+      setFormError(toMessage(error));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -56,6 +70,14 @@ export function SignupPage() {
           error={errors.password?.message}
           {...register('password')}
         />
+        <Input
+          label="Business phone"
+          type="tel"
+          placeholder="+233 20 000 0000"
+          hint="Optional — you can add this later in Settings."
+          error={errors.phone?.message}
+          {...register('phone')}
+        />
 
         {formError && (
           <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
@@ -67,6 +89,22 @@ export function SignupPage() {
           Create account
         </Button>
       </form>
+
+      <div className="my-5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-line" />
+        <span className="text-xs font-medium uppercase text-muted">or</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <Button
+        type="button"
+        variant="secondary"
+        fullWidth
+        loading={googleLoading}
+        onClick={onGoogleClick}
+      >
+        Continue with Google
+      </Button>
 
       <p className="mt-6 text-sm text-muted">
         Already selling with us?{' '}

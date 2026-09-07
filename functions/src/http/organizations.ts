@@ -3,24 +3,34 @@ import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { GRAPH_VERSION, TRIAL_DAYS } from '../config';
-import { credentialsRef, db, loadCredentials, orgRef, routingRef } from '../tenant';
+import { db, loadCredentialsForOrg, orgRef, whatsappAccountRef } from '../tenant';
 import { sendText } from '../whatsapp/client';
 import { connectWhatsappInput, createOrgInput, testMessageInput } from '../types';
 
-function requireAuth(auth: { uid: string; token: Record<string, unknown> } | undefined) {
+type AuthInfo = { uid: string; token: Record<string, unknown> } | undefined;
+
+function requireAuth(auth: AuthInfo) {
   if (!auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   return auth;
 }
 
-function requireOrg(auth: { uid: string; token: Record<string, unknown> } | undefined) {
+/**
+ * orgId and role live on the caller's /users/{uid} Firestore document — the
+ * same one the web app's signup flow writes and Firestore rules read from
+ * (see firestore.rules' `profile()` helper). Custom claims are not used here,
+ * so tenancy has exactly one source of truth across the web app and these
+ * functions.
+ */
+async function requireOrg(auth: AuthInfo) {
   const user = requireAuth(auth);
-  const orgId = user.token.orgId as string | undefined;
+  const profile = await db().collection('users').doc(user.uid).get();
+  const orgId = profile.get('orgId') as string | undefined;
   if (!orgId) throw new HttpsError('failed-precondition', 'This account has no business yet.');
-  return { uid: user.uid, orgId, role: (user.token.role as string) ?? 'staff' };
+  return { uid: user.uid, orgId, role: (profile.get('role') as string) ?? 'staff' };
 }
 
-function requireAdmin(auth: { uid: string; token: Record<string, unknown> } | undefined) {
-  const ctx = requireOrg(auth);
+async function requireAdmin(auth: AuthInfo) {
+  const ctx = await requireOrg(auth);
   if (!['owner', 'admin'].includes(ctx.role)) {
     throw new HttpsError('permission-denied', 'Only owners and admins can do this.');
   }
@@ -28,9 +38,14 @@ function requireAdmin(auth: { uid: string; token: Record<string, unknown> } | un
 }
 
 /**
- * Provisions a tenant and stamps orgId/role onto the caller's ID token. Every
- * security rule keys off those claims, so this is the only place a user is
- * bound to a business.
+ * Alternate tenant-provisioning path, not currently called by the web app —
+ * its signup flow creates the organization and /users profile directly via
+ * the client SDK (web/src/services/auth.service.ts) instead. Kept for a
+ * future server-side signup path; note it stamps orgId/role as custom claims,
+ * which nothing else in this codebase reads (Firestore rules and the
+ * requireOrg/requireAdmin helpers above both read /users/{uid} instead), and
+ * its early-return guard below only recognizes a prior *claims*-based
+ * provisioning, not a /users/{uid} document from the real flow.
  */
 export const createOrganization = onCall(async (request) => {
   const user = requireAuth(request.auth);
@@ -81,14 +96,16 @@ export const createOrganization = onCall(async (request) => {
 
 /**
  * Verifies the credentials against Meta before storing them, then claims the
- * phone_number_id in the routing table so inbound messages find this tenant.
+ * phone_number_id in `whatsappAccounts/` so inbound messages find this tenant.
+ * `webhookStatus` starts at "pending" — the webhook itself flips it to
+ * "verified" the first time Meta actually delivers a message for this number.
  */
 export const connectWhatsapp = onCall(async (request) => {
-  const { orgId } = requireAdmin(request.auth);
+  const { orgId } = await requireAdmin(request.auth);
   const parsed = connectWhatsappInput.safeParse(request.data);
   if (!parsed.success) throw new HttpsError('invalid-argument', 'Check the values you copied.');
 
-  const { phoneNumberId, wabaId, displayPhone, accessToken } = parsed.data;
+  const { phoneNumberId, businessAccountId, displayPhone, accessToken } = parsed.data;
 
   const probe = await fetch(
     `https://graph.facebook.com/${GRAPH_VERSION.value()}/${phoneNumberId}?fields=display_phone_number,verified_name`,
@@ -97,41 +114,65 @@ export const connectWhatsapp = onCall(async (request) => {
   if (!probe.ok) {
     throw new HttpsError('invalid-argument', 'Meta rejected that token or phone number ID.');
   }
+  const { verified_name: verifiedName } = (await probe.json()) as { verified_name?: string };
 
   // A phone number can only ever belong to one tenant.
-  const routing = routingRef(phoneNumberId);
+  const account = whatsappAccountRef(phoneNumberId);
   await db().runTransaction(async (tx) => {
-    const existing = await tx.get(routing);
-    if (existing.exists && existing.get('orgId') !== orgId) {
+    const existing = await tx.get(account);
+    if (existing.exists && existing.get('organizationId') !== orgId) {
       throw new HttpsError('already-exists', 'That number is connected to another business.');
     }
-    tx.set(routing, { orgId, updatedAt: FieldValue.serverTimestamp() });
-    tx.set(credentialsRef(orgId), { phoneNumberId, wabaId, displayPhone, accessToken });
-    tx.update(orgRef(orgId), { whatsappStatus: 'connected', whatsappPhone: displayPhone });
+    tx.set(account, {
+      organizationId: orgId,
+      phoneNumberId,
+      businessAccountId,
+      displayPhone,
+      accessToken,
+      webhookStatus: 'pending',
+      connectedAt: FieldValue.serverTimestamp(),
+    });
+    // Non-secret mirror the dashboard reads directly — never the access token.
+    tx.update(orgRef(orgId), {
+      'whatsapp.connected': true,
+      'whatsapp.phoneNumberId': phoneNumberId,
+      'whatsapp.wabaId': businessAccountId,
+      'whatsapp.displayPhoneNumber': displayPhone,
+      'whatsapp.verifiedName': verifiedName ?? null,
+      'whatsapp.connectedAt': FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   });
 
   return { ok: true as const, displayPhone };
 });
 
 export const disconnectWhatsapp = onCall(async (request) => {
-  const { orgId } = requireAdmin(request.auth);
-  const creds = await loadCredentials(orgId);
+  const { orgId } = await requireAdmin(request.auth);
+  const creds = await loadCredentialsForOrg(orgId);
 
   const batch = db().batch();
-  if (creds) batch.delete(routingRef(creds.phoneNumberId));
-  batch.delete(credentialsRef(orgId));
-  batch.update(orgRef(orgId), { whatsappStatus: 'disconnected', whatsappPhone: null });
+  if (creds) batch.delete(whatsappAccountRef(creds.phoneNumberId));
+  batch.update(orgRef(orgId), {
+    'whatsapp.connected': false,
+    'whatsapp.phoneNumberId': null,
+    'whatsapp.wabaId': null,
+    'whatsapp.displayPhoneNumber': null,
+    'whatsapp.verifiedName': null,
+    'whatsapp.connectedAt': null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
   await batch.commit();
 
   return { ok: true as const };
 });
 
 export const sendTestMessage = onCall(async (request) => {
-  const { orgId } = requireAdmin(request.auth);
+  const { orgId } = await requireAdmin(request.auth);
   const parsed = testMessageInput.safeParse(request.data);
   if (!parsed.success) throw new HttpsError('invalid-argument', 'Enter a valid phone number.');
 
-  const creds = await loadCredentials(orgId);
+  const creds = await loadCredentialsForOrg(orgId);
   if (!creds) throw new HttpsError('failed-precondition', 'Connect a WhatsApp number first.');
 
   const result = await sendText(
