@@ -35,7 +35,17 @@ function deleteProductImage(imagePath: string) {
   });
 }
 
-export async function createProduct(orgId: string, input: ProductInput, imageFile?: File | null) {
+export interface CreateProductResult {
+  id: string;
+  /** True when an image was selected but Storage rejected or failed the upload — the product still exists, with imageUrl: null. */
+  imageFailed: boolean;
+}
+
+export async function createProduct(
+  orgId: string,
+  input: ProductInput,
+  imageFile?: File | null,
+): Promise<CreateProductResult> {
   const created = await addDoc(productsRef(orgId), {
     ...input,
     imageUrl: null,
@@ -44,12 +54,20 @@ export async function createProduct(orgId: string, input: ProductInput, imageFil
     updatedAt: serverTimestamp(),
   } as never);
 
-  if (imageFile) {
-    const { imageUrl, imagePath } = await uploadProductImage(orgId, created.id, imageFile);
-    await updateDoc(productRef(orgId, created.id), { imageUrl, imagePath } as never);
+  if (!imageFile) {
+    return { id: created.id, imageFailed: false };
   }
 
-  return created.id;
+  try {
+    const { imageUrl, imagePath } = await uploadProductImage(orgId, created.id, imageFile);
+    await updateDoc(productRef(orgId, created.id), { imageUrl, imagePath } as never);
+    return { id: created.id, imageFailed: false };
+  } catch {
+    // Storage may not be configured yet (common in early development) or the
+    // upload itself failed — either way the product document already exists
+    // with imageUrl: null, so creation should not be blocked by this.
+    return { id: created.id, imageFailed: true };
+  }
 }
 
 /** Pass `imageChange` only when the photo itself is changing: a new file, or an explicit removal. */

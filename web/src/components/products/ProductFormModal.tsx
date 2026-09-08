@@ -26,12 +26,13 @@ export function ProductFormModal({ open, onClose, orgId, product, categories }: 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageRemoved, setImageRemoved] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<ProductInput>({ resolver: zodResolver(productSchema), defaultValues: BLANK });
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export function ProductFormModal({ open, onClose, orgId, product, categories }: 
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
+    setSubmitting(true);
     try {
       if (product) {
         const imageChange: ProductImageChange | null = imageFile
@@ -77,13 +79,16 @@ export function ProductFormModal({ open, onClose, orgId, product, categories }: 
             ? { remove: true }
             : null;
         await updateProduct(orgId, product.id, values, imageChange, product.imagePath);
+        toast.success('Product saved.');
       } else {
-        await createProduct(orgId, values, imageFile);
+        const { imageFailed } = await createProduct(orgId, values, imageFile);
+        toast.success(imageFailed ? 'Product created without image.' : 'Product added.');
       }
-      toast.success(isEditing ? 'Product saved.' : 'Product added.');
       onClose();
     } catch (error) {
       setFormError(toMessage(error));
+    } finally {
+      setSubmitting(false);
     }
   });
 
@@ -97,7 +102,7 @@ export function ProductFormModal({ open, onClose, orgId, product, categories }: 
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSubmit} loading={isSubmitting}>
+          <Button type="button" onClick={onSubmit} loading={submitting}>
             {isEditing ? 'Save changes' : 'Add product'}
           </Button>
         </>
