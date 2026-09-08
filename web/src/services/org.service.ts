@@ -20,10 +20,14 @@ export async function createOrganization({ name, ownerUid, phone = null }: Creat
     ownerUid,
     memberUids: [ownerUid],
     subscription: {
-      plan: 'starter',
-      status: 'trialing',
-      orderQuotaPerMonth: 30,
+      plan: 'free',
+      status: 'active',
       renewsAt: null,
+      currentPeriodStart: null,
+      ordersUsedThisPeriod: 0,
+      paymentProvider: null,
+      externalCustomerId: null,
+      externalSubscriptionId: null,
     },
     whatsapp: {
       connected: false,

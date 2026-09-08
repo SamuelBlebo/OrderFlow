@@ -1,6 +1,7 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { CATALOG_PAGE_SIZE } from '../config';
+import { resolveUsage } from '../billing';
 import {
   customersRef,
   loadOrgProfile,
@@ -390,12 +391,17 @@ async function placeOrder(ctx: Ctx): Promise<Partial<Session>> {
 
   // One transaction gives the order its sequential number, writes the order,
   // and updates the customer record — all inside this tenant.
-  const number = await orgRef(ctx.orgId).firestore.runTransaction(async (tx) => {
+  const { number, usage } = await orgRef(ctx.orgId).firestore.runTransaction(async (tx) => {
     const org = await tx.get(orgRef(ctx.orgId));
     const nextNumber = ((org.get('orderCounter') as number) ?? 0) + 1;
     const customer = await tx.get(customerDoc);
+    const usage = resolveUsage(org);
 
-    tx.update(orgRef(ctx.orgId), { orderCounter: nextNumber });
+    tx.update(orgRef(ctx.orgId), {
+      orderCounter: nextNumber,
+      'subscription.currentPeriodStart': usage.periodKey,
+      'subscription.ordersUsedThisPeriod': usage.ordersUsedBefore + 1,
+    });
     tx.set(orderDoc, {
       number: nextNumber,
       status: 'pending',
@@ -440,7 +446,7 @@ async function placeOrder(ctx: Ctx): Promise<Partial<Session>> {
       },
       { merge: true },
     );
-    return nextNumber;
+    return { number: nextNumber, usage };
   });
 
   await sendText(
@@ -454,6 +460,19 @@ async function placeOrder(ctx: Ctx): Promise<Partial<Session>> {
       'We will message you here as soon as it is confirmed.',
     ].join('\n'),
   );
+
+  // Deliberately non-blocking: a merchant's own plan limit is never a reason
+  // to turn away a paying customer. Usage is tracked either way and surfaced
+  // on the merchant's Settings > Plan & usage page — this just logs so an
+  // over-limit org is visible in the logs, not silently invisible.
+  if (usage.overLimit) {
+    logger.warn('Order placed over the plan order limit', {
+      orgId: ctx.orgId,
+      plan: usage.plan,
+      ordersUsed: usage.ordersUsedBefore + 1,
+      limit: usage.limit,
+    });
+  }
 
   return { ...EMPTY_SESSION };
 }

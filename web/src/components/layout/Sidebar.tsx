@@ -37,7 +37,7 @@ export function Sidebar({ open, onNavigate }: SidebarProps) {
           <p className="text-xs text-muted">Signed in to</p>
           <p className="truncate text-sm font-semibold text-ink">{org?.name ?? 'No business'}</p>
           <p className="mt-0.5 text-xs capitalize text-muted">
-            {org?.subscription.plan ?? 'starter'} plan
+            {org?.subscription.plan ?? 'free'} plan
           </p>
         </div>
 

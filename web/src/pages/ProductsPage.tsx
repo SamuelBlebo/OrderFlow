@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, EmptyState, Input, Modal, Select, Spinner } from '@/components/ui';
+import { Link } from 'react-router-dom';
+import { Button, Card, CardBody, EmptyState, Input, Modal, Select, Spinner } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductFormModal } from '@/components/products/ProductFormModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useCollection } from '@/hooks/useCollection';
 import { deleteProduct, productsQuery } from '@/services';
+import { PLAN_CATALOG } from '@/config/plans';
 import type { Product, WithId } from '@/types';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -36,7 +38,11 @@ export function ProductsPage() {
     return true;
   });
 
+  const productLimit = PLAN_CATALOG[org!.subscription.plan].productLimit;
+  const atProductLimit = productLimit !== null && rows.length >= productLimit;
+
   const openAdd = () => {
+    if (atProductLimit) return;
     setEditingProduct(null);
     setFormOpen(true);
   };
@@ -64,8 +70,28 @@ export function ProductsPage() {
       <PageHeader
         title="Products"
         description="This catalogue is exactly what the bot shows a customer."
-        action={<Button onClick={openAdd}>Add product</Button>}
+        action={
+          <Button onClick={openAdd} disabled={atProductLimit}>
+            Add product
+          </Button>
+        }
       />
+
+      {atProductLimit && (
+        <Card className="mb-4 border-warn/40">
+          <CardBody className="flex flex-wrap items-center gap-3 p-4">
+            <p className="text-sm text-ink">
+              <strong>
+                You've reached your {PLAN_CATALOG[org!.subscription.plan].name} plan's {productLimit}-product limit.
+              </strong>{' '}
+              Upgrade to add more.
+            </p>
+            <Link to="/settings" className="text-sm font-semibold text-brand">
+              Upgrade plan
+            </Link>
+          </CardBody>
+        </Card>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-3">
         <div className="w-full sm:max-w-xs sm:flex-1">

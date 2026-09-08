@@ -9,13 +9,25 @@ export type BusinessCategory =
   | 'books'
   | 'other';
 
-export type PlanId = 'starter' | 'growth' | 'pro';
+export type PlanId = 'free' | 'starter' | 'growth' | 'pro';
+
+/** Set once a real subscription exists — see changePlan in functions/src/http/billing.ts. */
+export type PaymentProvider = 'stripe' | 'paystack';
 
 export interface Subscription {
   plan: PlanId;
   status: 'trialing' | 'active' | 'past_due' | 'cancelled';
-  orderQuotaPerMonth: number | null;
   renewsAt: string | null;
+  /**
+   * "YYYY-MM" — the month `ordersUsedThisPeriod` is counting. A plan's order
+   * limit lives in web/src/config/plans.ts, not here, so raising a limit
+   * never requires touching every org document.
+   */
+  currentPeriodStart: string | null;
+  ordersUsedThisPeriod: number;
+  paymentProvider: PaymentProvider | null;
+  externalCustomerId: string | null;
+  externalSubscriptionId: string | null;
 }
 
 export interface WhatsAppAccount {

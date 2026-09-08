@@ -37,7 +37,13 @@ service cloud.firestore {
     match /organizations/{orgId} {
       allow read: if memberOf(orgId);
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if hasRole(orgId, ['owner', 'admin']);
+      // Everything but the plan itself — subscription changes go through the
+      // changePlan Cloud Function (functions/src/http/billing.ts), which is
+      // the only path that can eventually confirm a real payment before
+      // granting a paid tier. A client writing this directly would be
+      // billing fraud by omission.
+      allow update: if hasRole(orgId, ['owner', 'admin'])
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscription']);
       allow delete: if false;
 
       // ---- tenant-owned data ------------------------------------------

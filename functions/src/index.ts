@@ -18,6 +18,7 @@ export {
   sendTestMessage,
 } from './http/organizations';
 export { sendBroadcast } from './http/customers';
+export { changePlan, billingWebhook } from './http/billing';
 
 // Background work.
 export { onOrderStatusChange } from './triggers/onOrderStatusChange';
