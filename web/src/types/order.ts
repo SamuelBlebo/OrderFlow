@@ -1,3 +1,4 @@
+import type { Timestamp } from 'firebase/firestore';
 import type { Timestamps } from './common';
 
 export type OrderStatus =
@@ -38,4 +39,7 @@ export interface Order extends Timestamps {
   status: OrderStatus;
   channel: 'whatsapp' | 'manual';
   note: string | null;
+  riderName: string | null;
+  riderPhone: string | null;
+  estimatedDeliveryAt: Timestamp | null;
 }

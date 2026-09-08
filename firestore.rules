@@ -58,7 +58,7 @@ service cloud.firestore {
         allow create: if false; // orders originate from the WhatsApp webhook
         allow update: if memberOf(orgId)
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['status', 'note', 'updatedAt']);
+               .hasOnly(['status', 'note', 'riderName', 'riderPhone', 'estimatedDeliveryAt', 'updatedAt']);
         allow delete: if false;
 
         // Normalized copy of the order's own `items` array — same origin,

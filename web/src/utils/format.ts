@@ -18,6 +18,14 @@ export function formatDate(value: Timestamp | Date | null | undefined): string {
   });
 }
 
+/** Local (not UTC) `YYYY-MM-DDTHH:mm`, the value an `<input type="datetime-local">` needs. */
+export function toDatetimeLocalInput(value: Timestamp | Date | null | undefined): string {
+  if (!value) return '';
+  const date = value instanceof Date ? value : value.toDate();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function initials(name: string): string {
   return name
     .split(' ')

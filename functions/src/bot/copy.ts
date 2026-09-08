@@ -12,11 +12,36 @@ export const BUTTONS = {
   human: 'menu:human',
 } as const;
 
-export const statusUpdate: Record<OrderStatus, (n: number) => string | null> = {
+/** Whatever the merchant has set on the order at the moment its status changes. */
+export interface DeliveryContext {
+  riderName?: string | null;
+  riderPhone?: string | null;
+  estimatedDeliveryAt?: FirebaseFirestore.Timestamp | null;
+}
+
+function formatEta(ts: FirebaseFirestore.Timestamp): string {
+  return ts.toDate().toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export const statusUpdate: Record<OrderStatus, (n: number, ctx?: DeliveryContext) => string | null> = {
   pending: () => null,
   confirmed: (n) => `Order #${n} is confirmed. We are getting it ready now.`,
   preparing: (n) => `Order #${n} is being prepared.`,
-  out_for_delivery: (n) => `Order #${n} is on its way to you. Please keep your phone close.`,
+  out_for_delivery: (n, ctx) => {
+    const lines = [`Order #${n} is on its way to you. Please keep your phone close.`];
+    if (ctx?.riderName) {
+      lines.push(`Rider: ${ctx.riderName}${ctx.riderPhone ? ` (${ctx.riderPhone})` : ''}`);
+    }
+    if (ctx?.estimatedDeliveryAt) {
+      lines.push(`Estimated arrival: ${formatEta(ctx.estimatedDeliveryAt)}`);
+    }
+    return lines.join('\n');
+  },
   delivered: (n) => `Order #${n} is delivered. Thank you for shopping with us.`,
   cancelled: (n) => `Order #${n} has been cancelled. Message us if this is a mistake.`,
 };

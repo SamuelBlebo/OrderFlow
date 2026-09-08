@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
+import { Timestamp } from 'firebase/firestore';
 import { Button, Card, EmptyState, Input, Modal, Select, Spinner, StatusBadge } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useCollection } from '@/hooks/useCollection';
-import { ordersQuery, setOrderStatus } from '@/services';
+import { ordersQuery, updateOrder, type OrderUpdatePatch } from '@/services';
 import { ORDER_FLOW, type Order, type OrderStatus, type WithId } from '@/types';
-import { formatDate, formatMoney } from '@/utils/format';
+import { formatDate, formatMoney, toDatetimeLocalInput } from '@/utils/format';
 import { toMessage } from '@/utils/errors';
 
 type StatusFilter = 'all' | OrderStatus;
@@ -162,24 +163,47 @@ function OrderDetailModal({
   onClose: () => void;
 }) {
   const [note, setNote] = useState(order.note ?? '');
+  const [riderName, setRiderName] = useState(order.riderName ?? '');
+  const [riderPhone, setRiderPhone] = useState(order.riderPhone ?? '');
+  const [eta, setEta] = useState(toDatetimeLocalInput(order.estimatedDeliveryAt));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const advance = nextStatus(order.status);
   const isTerminal = order.status === 'delivered' || order.status === 'cancelled';
+  const canManageDelivery = order.status !== 'cancelled';
 
-  const applyStatus = async (status: OrderStatus) => {
+  /**
+   * Whatever's currently in these fields rides along with every save —
+   * including a status advance. That's deliberate: the WhatsApp message the
+   * customer gets on "out for delivery" is built from the rider/ETA already
+   * on the document at that moment, so setting them here is what gets them
+   * into that message.
+   */
+  const deliveryPatch = (): OrderUpdatePatch => ({
+    note: note || null,
+    riderName: riderName || null,
+    riderPhone: riderPhone || null,
+    estimatedDeliveryAt: eta ? Timestamp.fromDate(new Date(eta)) : null,
+  });
+
+  const save = async (patch: OrderUpdatePatch, closeAfter: boolean) => {
     setBusy(true);
     setError(null);
     try {
-      await setOrderStatus(orgId, order.id, status, note || null);
-      if (status === 'cancelled' || status === 'delivered') onClose();
+      await updateOrder(orgId, order.id, patch);
+      if (closeAfter) onClose();
     } catch (err) {
       setError(toMessage(err));
     } finally {
       setBusy(false);
     }
   };
+
+  const applyStatus = (status: OrderStatus) =>
+    save({ status, ...deliveryPatch() }, status === 'cancelled' || status === 'delivered');
+
+  const saveDeliveryDetails = () => save(deliveryPatch(), false);
 
   return (
     <Modal
@@ -243,6 +267,47 @@ function OrderDetailModal({
             <span>{formatMoney(order.total, order.currency)}</span>
           </div>
         </div>
+
+        {canManageDelivery && (
+          <div className="space-y-3 rounded-xl border border-line p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted">Delivery</p>
+              <Button type="button" variant="ghost" size="sm" loading={busy} onClick={saveDeliveryDetails}>
+                Save
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Rider name"
+                placeholder="e.g. Kwame"
+                value={riderName}
+                onChange={(e) => setRiderName(e.target.value)}
+              />
+              <Input
+                label="Rider phone"
+                type="tel"
+                placeholder="+233 24 000 0000"
+                value={riderPhone}
+                onChange={(e) => setRiderPhone(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-ink" htmlFor="order-eta">
+                Estimated delivery
+              </label>
+              <input
+                id="order-eta"
+                type="datetime-local"
+                value={eta}
+                onChange={(e) => setEta(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-line bg-raised px-3 py-2.5 text-sm text-ink focus:border-brand focus:outline-none"
+              />
+            </div>
+            <p className="text-xs text-muted">
+              Whatever's set here goes out in the customer's "out for delivery" WhatsApp message.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="block text-xs font-semibold text-muted" htmlFor="order-note">

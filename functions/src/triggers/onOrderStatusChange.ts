@@ -20,7 +20,11 @@ export const onOrderStatusChange = onDocumentUpdated(
     const next = after.status as OrderStatus;
     if (previous === next) return;
 
-    const message = statusUpdate[next]?.(after.number as number);
+    const message = statusUpdate[next]?.(after.number as number, {
+      riderName: after.riderName as string | null | undefined,
+      riderPhone: after.riderPhone as string | null | undefined,
+      estimatedDeliveryAt: after.estimatedDeliveryAt as FirebaseFirestore.Timestamp | null | undefined,
+    });
     if (!message) return;
 
     const orgId = event.params.orgId;
