@@ -13,7 +13,7 @@ export function NotFoundPage() {
           The link may be old, or the page may have moved.
         </p>
         <Link to="/" className="mt-6 inline-block">
-          <Button>Back to dashboard</Button>
+          <Button>Back to home</Button>
         </Link>
       </div>
     </div>

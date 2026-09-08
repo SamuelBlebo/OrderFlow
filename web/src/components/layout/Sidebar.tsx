@@ -46,7 +46,7 @@ export function Sidebar({ open, onNavigate }: SidebarProps) {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
+              end={item.to === '/dashboard'}
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(

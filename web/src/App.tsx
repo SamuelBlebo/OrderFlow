@@ -6,6 +6,7 @@ import { ToastProvider } from '@/context/ToastContext';
 import { ProtectedRoute, PublicOnlyRoute, OnboardingRoute, RequirePlatformAdmin } from '@/components/routing/ProtectedRoute';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
+import { MarketingLayout } from '@/layouts/MarketingLayout';
 import { FullPageSpinner } from '@/components/ui';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
@@ -17,6 +18,12 @@ import { CustomersPage } from '@/pages/CustomersPage';
 import { WhatsAppPage } from '@/pages/WhatsAppPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { LandingPage } from '@/pages/marketing/LandingPage';
+import { PricingPage } from '@/pages/marketing/PricingPage';
+import { FaqPage } from '@/pages/marketing/FaqPage';
+import { HelpCenterPage } from '@/pages/marketing/HelpCenterPage';
+import { PrivacyPolicyPage } from '@/pages/marketing/PrivacyPolicyPage';
+import { TermsOfServicePage } from '@/pages/marketing/TermsOfServicePage';
 
 // Recharts adds real weight to the bundle — keep it out of the path everyone
 // pays for and only load it when a merchant actually opens Analytics.
@@ -44,6 +51,15 @@ export default function App() {
         <AuthProvider>
           <BrowserRouter>
             <Routes>
+              <Route element={<MarketingLayout />}>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/faq" element={<FaqPage />} />
+                <Route path="/help" element={<HelpCenterPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsOfServicePage />} />
+              </Route>
+
               <Route element={<PublicOnlyRoute />}>
                 <Route element={<AuthLayout />}>
                   <Route path="/login" element={<LoginPage />} />
@@ -59,7 +75,7 @@ export default function App() {
 
               <Route element={<ProtectedRoute />}>
                 <Route element={<DashboardLayout />}>
-                  <Route index element={<DashboardPage />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/orders" element={<OrdersPage />} />
                   <Route path="/products" element={<ProductsPage />} />
                   <Route path="/customers" element={<CustomersPage />} />

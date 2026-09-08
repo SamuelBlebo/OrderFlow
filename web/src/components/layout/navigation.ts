@@ -6,7 +6,7 @@ export interface NavItem {
 
 /** Ordered by how often a merchant touches it during a working day. */
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: '▤' },
+  { to: '/dashboard', label: 'Dashboard', icon: '▤' },
   { to: '/products', label: 'Products', icon: '◫' },
   { to: '/orders', label: 'Orders', icon: '☰' },
   { to: '/customers', label: 'Customers', icon: '☺' },
