@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { Button, Card, CardBody, EmptyState, Input, Spinner } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useCollection } from '@/hooks/useCollection';
+import { useToast } from '@/hooks/useToast';
 import { featureFlagsQuery, setFeatureFlag } from '@/services';
 import { formatDate } from '@/utils/format';
 import { toMessage } from '@/utils/errors';
 
 export function AdminFeatureFlagsPage() {
+  const toast = useToast();
   const flags = useCollection(useMemo(() => featureFlagsQuery(), []));
   const rows = flags.status === 'ready' ? flags.data : [];
 
@@ -34,6 +36,7 @@ export function AdminFeatureFlagsPage() {
     setError(null);
     try {
       await setFeatureFlag(id, false, newFlagDescription.trim() || 'No description yet.');
+      toast.success(`Flag "${id}" created.`);
       setNewFlagId('');
       setNewFlagDescription('');
     } catch (err) {

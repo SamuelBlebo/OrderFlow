@@ -20,7 +20,12 @@ export function ProductCard({ product, currency, onEdit, onDelete }: ProductCard
     <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
       <div className="relative aspect-[4/3] w-full bg-raised">
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <div className="grid h-full w-full place-items-center text-3xl text-muted" aria-hidden>
             ◫

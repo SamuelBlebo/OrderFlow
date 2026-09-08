@@ -5,9 +5,13 @@ import { broadcastsRef, loadCredentialsForOrg } from '../tenant';
 import { sendText } from '../whatsapp/client';
 import { broadcastInput } from '../types';
 import { requireAdmin } from './guards';
+import { checkRateLimit } from '../rateLimit';
 
 /** How many WhatsApp sends run concurrently — a courtesy to Meta's rate limits, not a hard API cap. */
 const BROADCAST_BATCH_SIZE = 10;
+
+/** Each send costs real WhatsApp API usage — caps one org from firing off broadcasts back-to-back. */
+const BROADCAST_LIMIT_PER_HOUR = 3;
 
 /**
  * A customer doc's id is their WhatsApp id already (see engine.ts's
@@ -26,6 +30,8 @@ export const sendBroadcast = onCall({ timeoutSeconds: 300 }, async (request) => 
   const { orgId, uid } = await requireAdmin(request.auth);
   const parsed = broadcastInput.safeParse(request.data);
   if (!parsed.success) throw new HttpsError('invalid-argument', 'Check the message and recipients.');
+
+  await checkRateLimit(`broadcast:${orgId}`, BROADCAST_LIMIT_PER_HOUR, 3600);
 
   const { message, customerIds } = parsed.data;
 

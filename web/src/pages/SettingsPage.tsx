@@ -5,6 +5,7 @@ import { PlanCard } from '@/components/billing/PlanCard';
 import { UsageMeter } from '@/components/billing/UsageMeter';
 import { useAuth } from '@/hooks/useAuth';
 import { useCollection } from '@/hooks/useCollection';
+import { useToast } from '@/hooks/useToast';
 import { changePlan, productsQuery } from '@/services';
 import { PLAN_CATALOG, PLAN_ORDER } from '@/config/plans';
 import type { PlanId } from '@/types';
@@ -13,6 +14,7 @@ import { toMessage } from '@/utils/errors';
 export function SettingsPage() {
   const { org } = useAuth();
   const orgId = org!.id;
+  const toast = useToast();
   const products = useCollection(useMemo(() => productsQuery(orgId), [orgId]));
   const productCount = products.status === 'ready' ? products.data.length : 0;
 
@@ -28,6 +30,7 @@ export function SettingsPage() {
     setPlanError(null);
     try {
       await changePlan(plan);
+      toast.success(`Switched to the ${PLAN_CATALOG[plan].name} plan.`);
     } catch (error) {
       setPlanError(toMessage(error));
     } finally {

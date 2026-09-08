@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { ProductFormModal } from '@/components/products/ProductFormModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useCollection } from '@/hooks/useCollection';
+import { useToast } from '@/hooks/useToast';
 import { deleteProduct, productsQuery } from '@/services';
 import { PLAN_CATALOG } from '@/config/plans';
 import type { Product, WithId } from '@/types';
@@ -15,6 +16,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 export function ProductsPage() {
   const { org } = useAuth();
   const orgId = org!.id;
+  const toast = useToast();
   const products = useCollection(useMemo(() => productsQuery(orgId), [orgId]));
 
   const [search, setSearch] = useState('');
@@ -57,6 +59,7 @@ export function ProductsPage() {
     setDeleteError(null);
     try {
       await deleteProduct(orgId, deleteTarget.id, deleteTarget.imagePath);
+      toast.success('Product deleted.');
       setDeleteTarget(null);
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : 'Could not delete this product.');

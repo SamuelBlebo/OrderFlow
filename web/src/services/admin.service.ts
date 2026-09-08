@@ -1,14 +1,19 @@
 import { httpsCallable } from 'firebase/functions';
 import { limit, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, featureFlagRef, featureFlagsRef, functions, platformLogsRef } from '@/firebase';
+import { callWithRetry } from '@/utils/callWithRetry';
 import type { MerchantSummary, PlatformMetrics } from '@/types';
 
 // ---- cross-tenant reads/writes: always through a callable, never a direct
-// Firestore rule, so a rules mistake can never leak merchant tenant data. ----
+// Firestore rule, so a rules mistake can never leak merchant tenant data.
+// Every one of these is safe to retry on a transient failure: the reads are
+// pure, and suspend/unsuspend/delete are all idempotent (suspending an
+// already-suspended org, or re-running a delete whose cleanup steps already
+// happened, is a no-op either way). ----
 
 const getPlatformMetricsCallable = httpsCallable<void, PlatformMetrics>(functions, 'getPlatformMetrics');
 export async function getPlatformMetrics(): Promise<PlatformMetrics> {
-  const result = await getPlatformMetricsCallable();
+  const result = await callWithRetry(() => getPlatformMetricsCallable());
   return result.data;
 }
 
@@ -21,7 +26,7 @@ const listMerchantsCallable = httpsCallable<{ cursor?: string; pageSize?: number
   'listMerchants',
 );
 export async function listMerchants(cursor?: string, pageSize = 25): Promise<ListMerchantsResult> {
-  const result = await listMerchantsCallable({ cursor, pageSize });
+  const result = await callWithRetry(() => listMerchantsCallable({ cursor, pageSize }));
   return result.data;
 }
 
@@ -30,12 +35,12 @@ const suspendMerchantCallable = httpsCallable<{ orgId: string; reason?: string }
   'suspendMerchant',
 );
 export async function suspendMerchant(orgId: string, reason?: string) {
-  await suspendMerchantCallable({ orgId, reason });
+  await callWithRetry(() => suspendMerchantCallable({ orgId, reason }));
 }
 
 const unsuspendMerchantCallable = httpsCallable<{ orgId: string }, { ok: true }>(functions, 'unsuspendMerchant');
 export async function unsuspendMerchant(orgId: string) {
-  await unsuspendMerchantCallable({ orgId });
+  await callWithRetry(() => unsuspendMerchantCallable({ orgId }));
 }
 
 const deleteMerchantCallable = httpsCallable<{ orgId: string; confirmName: string }, { ok: true }>(
@@ -43,7 +48,7 @@ const deleteMerchantCallable = httpsCallable<{ orgId: string; confirmName: strin
   'deleteMerchant',
 );
 export async function deleteMerchant(orgId: string, confirmName: string) {
-  await deleteMerchantCallable({ orgId, confirmName });
+  await callWithRetry(() => deleteMerchantCallable({ orgId, confirmName }));
 }
 
 // ---- platform-only config/audit data: no merchant tenant data lives here,

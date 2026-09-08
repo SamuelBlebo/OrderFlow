@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { ToastProvider } from '@/context/ToastContext';
 import { ProtectedRoute, PublicOnlyRoute, OnboardingRoute, RequirePlatformAdmin } from '@/components/routing/ProtectedRoute';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
@@ -39,61 +40,63 @@ const AdminFeatureFlagsPage = lazy(() =>
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<PublicOnlyRoute />}>
-              <Route element={<AuthLayout />}>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
+      <ToastProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<PublicOnlyRoute />}>
+                <Route element={<AuthLayout />}>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
+                </Route>
               </Route>
-            </Route>
 
-            <Route element={<OnboardingRoute />}>
-              <Route element={<AuthLayout />}>
-                <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route element={<OnboardingRoute />}>
+                <Route element={<AuthLayout />}>
+                  <Route path="/onboarding" element={<OnboardingPage />} />
+                </Route>
               </Route>
-            </Route>
 
-            <Route element={<ProtectedRoute />}>
-              <Route element={<DashboardLayout />}>
-                <Route index element={<DashboardPage />} />
-                <Route path="/orders" element={<OrdersPage />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/customers" element={<CustomersPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<DashboardLayout />}>
+                  <Route index element={<DashboardPage />} />
+                  <Route path="/orders" element={<OrdersPage />} />
+                  <Route path="/products" element={<ProductsPage />} />
+                  <Route path="/customers" element={<CustomersPage />} />
+                  <Route
+                    path="/analytics"
+                    element={
+                      <Suspense fallback={<FullPageSpinner />}>
+                        <AnalyticsPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route path="/whatsapp" element={<WhatsAppPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </Route>
+              </Route>
+
+              <Route element={<RequirePlatformAdmin />}>
                 <Route
-                  path="/analytics"
                   element={
                     <Suspense fallback={<FullPageSpinner />}>
-                      <AnalyticsPage />
+                      <AdminLayout />
                     </Suspense>
                   }
-                />
-                <Route path="/whatsapp" element={<WhatsAppPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                >
+                  <Route path="/admin" element={<AdminDashboardPage />} />
+                  <Route path="/admin/merchants" element={<AdminMerchantsPage />} />
+                  <Route path="/admin/logs" element={<AdminLogsPage />} />
+                  <Route path="/admin/flags" element={<AdminFeatureFlagsPage />} />
+                </Route>
               </Route>
-            </Route>
 
-            <Route element={<RequirePlatformAdmin />}>
-              <Route
-                element={
-                  <Suspense fallback={<FullPageSpinner />}>
-                    <AdminLayout />
-                  </Suspense>
-                }
-              >
-                <Route path="/admin" element={<AdminDashboardPage />} />
-                <Route path="/admin/merchants" element={<AdminMerchantsPage />} />
-                <Route path="/admin/logs" element={<AdminLogsPage />} />
-                <Route path="/admin/flags" element={<AdminFeatureFlagsPage />} />
-              </Route>
-            </Route>
-
-            <Route path="/404" element={<NotFoundPage />} />
-            <Route path="*" element={<Navigate to="/404" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+              <Route path="/404" element={<NotFoundPage />} />
+              <Route path="*" element={<Navigate to="/404" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

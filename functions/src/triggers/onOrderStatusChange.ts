@@ -8,6 +8,14 @@ import type { OrderStatus } from '../types';
 /**
  * Keeps the customer informed without the merchant typing anything. Fires only
  * when the status actually moves.
+ *
+ * Deliberately NOT configured to retry on failure. This function's side
+ * effect (sendText) isn't idempotent — a retry after a crash that happened
+ * just *after* the message went out, but before the function returned, would
+ * re-send the same status notification to the customer. A dropped
+ * notification is a minor, silent miss; a duplicate is a visible, confusing
+ * one. Firestore triggers still deliver at-least-once regardless of this
+ * setting — `retry` only controls whether a *failed* execution is retried.
  */
 export const onOrderStatusChange = onDocumentUpdated(
   'organizations/{orgId}/orders/{orderId}',

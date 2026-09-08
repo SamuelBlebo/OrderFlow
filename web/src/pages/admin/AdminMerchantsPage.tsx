@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Button, Card, EmptyState, Input, Modal, Spinner } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { useToast } from '@/hooks/useToast';
 import { deleteMerchant, listMerchants, suspendMerchant, unsuspendMerchant } from '@/services';
 import type { MerchantSummary } from '@/types';
 import { formatDate } from '@/utils/format';
 import { toMessage } from '@/utils/errors';
 
 export function AdminMerchantsPage() {
+  const toast = useToast();
   const [merchants, setMerchants] = useState<MerchantSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +55,7 @@ export function AdminMerchantsPage() {
     try {
       await suspendMerchant(suspendTarget.id, suspendReason || undefined);
       setMerchants((prev) => prev.map((m) => (m.id === suspendTarget.id ? { ...m, suspended: true } : m)));
+      toast.success(`${suspendTarget.name} suspended.`);
       setSuspendTarget(null);
       setSuspendReason('');
     } catch (err) {
@@ -68,6 +71,7 @@ export function AdminMerchantsPage() {
     try {
       await unsuspendMerchant(merchant.id);
       setMerchants((prev) => prev.map((m) => (m.id === merchant.id ? { ...m, suspended: false } : m)));
+      toast.success(`${merchant.name} unsuspended.`);
     } catch (err) {
       setActionError(toMessage(err));
     } finally {
@@ -82,6 +86,7 @@ export function AdminMerchantsPage() {
     try {
       await deleteMerchant(deleteTarget.id, confirmName);
       setMerchants((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+      toast.success(`${deleteTarget.name} deleted.`);
       setDeleteTarget(null);
       setConfirmName('');
     } catch (err) {

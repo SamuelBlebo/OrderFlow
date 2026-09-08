@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { CATALOG_PAGE_SIZE } from '../config';
 import { resolveUsage } from '../billing';
+import { checkRateLimit } from '../rateLimit';
 import {
   customersRef,
   loadOrgProfile,
@@ -56,6 +57,16 @@ export async function handleMessage(
   // WhatsApp retries deliveries; never double-handle the same message id.
   if (session.handledMessageIds?.includes(message.id)) {
     logger.info('Duplicate inbound message ignored', { orgId, messageId: message.id });
+    return;
+  }
+
+  // A defensive cap against one customer (accidentally or not) flooding the
+  // bot — every reply is a real WhatsApp API call. Silently dropped, not
+  // surfaced to the customer, since there is nothing useful to tell them.
+  try {
+    await checkRateLimit(`inbound:${orgId}:${waId}`, 20, 60);
+  } catch {
+    logger.warn('Inbound message rate-limited', { orgId, waId, messageId: message.id });
     return;
   }
 

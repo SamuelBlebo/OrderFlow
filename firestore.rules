@@ -133,6 +133,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- rate limits -------------------------------------------------------
+    // Counters for checkRateLimit (functions/src/rateLimit.ts) — broadcast
+    // sends and inbound-message throttling. Admin-SDK-only, same reasoning as
+    // whatsappAccounts: nothing here is useful or safe for a client to see.
+    match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
     // Anything not matched above is denied.
     match /{document=**} {
       allow read, write: if false;

@@ -5,6 +5,7 @@ import { Button, Input, Modal } from '@/components/ui';
 import { createProduct, updateProduct, type ProductImageChange } from '@/services';
 import { productSchema, type ProductInput } from '@/utils/validation';
 import { toMessage } from '@/utils/errors';
+import { useToast } from '@/hooks/useToast';
 import type { Product, WithId } from '@/types';
 
 interface ProductFormModalProps {
@@ -20,6 +21,7 @@ const BLANK: ProductInput = { name: '', description: '', price: 0, stock: 0, cat
 
 export function ProductFormModal({ open, onClose, orgId, product, categories }: ProductFormModalProps) {
   const isEditing = Boolean(product);
+  const toast = useToast();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageRemoved, setImageRemoved] = useState(false);
@@ -78,6 +80,7 @@ export function ProductFormModal({ open, onClose, orgId, product, categories }: 
       } else {
         await createProduct(orgId, values, imageFile);
       }
+      toast.success(isEditing ? 'Product saved.' : 'Product added.');
       onClose();
     } catch (error) {
       setFormError(toMessage(error));

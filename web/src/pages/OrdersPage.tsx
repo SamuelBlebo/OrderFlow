@@ -4,6 +4,7 @@ import { Button, Card, EmptyState, Input, Modal, Select, Spinner, StatusBadge } 
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useCollection } from '@/hooks/useCollection';
+import { useToast } from '@/hooks/useToast';
 import { ordersQuery, updateOrder, type OrderUpdatePatch } from '@/services';
 import { ORDER_FLOW, type Order, type OrderStatus, type WithId } from '@/types';
 import { formatDate, formatMoney, toDatetimeLocalInput } from '@/utils/format';
@@ -162,6 +163,7 @@ function OrderDetailModal({
   orgId: string;
   onClose: () => void;
 }) {
+  const toast = useToast();
   const [note, setNote] = useState(order.note ?? '');
   const [riderName, setRiderName] = useState(order.riderName ?? '');
   const [riderPhone, setRiderPhone] = useState(order.riderPhone ?? '');
@@ -187,11 +189,12 @@ function OrderDetailModal({
     estimatedDeliveryAt: eta ? Timestamp.fromDate(new Date(eta)) : null,
   });
 
-  const save = async (patch: OrderUpdatePatch, closeAfter: boolean) => {
+  const save = async (patch: OrderUpdatePatch, closeAfter: boolean, successMessage: string) => {
     setBusy(true);
     setError(null);
     try {
       await updateOrder(orgId, order.id, patch);
+      toast.success(successMessage);
       if (closeAfter) onClose();
     } catch (err) {
       setError(toMessage(err));
@@ -201,9 +204,13 @@ function OrderDetailModal({
   };
 
   const applyStatus = (status: OrderStatus) =>
-    save({ status, ...deliveryPatch() }, status === 'cancelled' || status === 'delivered');
+    save(
+      { status, ...deliveryPatch() },
+      status === 'cancelled' || status === 'delivered',
+      status === 'cancelled' ? 'Order cancelled.' : `Order marked ${STATUS_LABEL[status].toLowerCase()}.`,
+    );
 
-  const saveDeliveryDetails = () => save(deliveryPatch(), false);
+  const saveDeliveryDetails = () => save(deliveryPatch(), false, 'Delivery details saved.');
 
   return (
     <Modal

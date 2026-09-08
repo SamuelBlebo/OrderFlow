@@ -3,6 +3,7 @@ import { Badge, Button, Card, EmptyState, Input, Modal, Select, Spinner, StatusB
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useCollection } from '@/hooks/useCollection';
+import { useToast } from '@/hooks/useToast';
 import {
   customerOrdersQuery,
   customersQuery,
@@ -206,6 +207,7 @@ function CustomerDetailModal({
   const orders = useCollection(useMemo(() => customerOrdersQuery(orgId, customer.id), [orgId, customer.id]));
   const rows = orders.status === 'ready' ? orders.data : [];
 
+  const toast = useToast();
   const [note, setNote] = useState(customer.note ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +217,7 @@ function CustomerDetailModal({
     setError(null);
     try {
       await updateCustomerNote(orgId, customer.id, note || null);
+      toast.success('Note saved.');
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -381,7 +384,11 @@ function BroadcastModal({
           <p className="text-sm text-muted">
             Sending to {customerIds.length} customer{customerIds.length === 1 ? '' : 's'}.
           </p>
+          <label className="sr-only" htmlFor="broadcast-message">
+            Broadcast message
+          </label>
           <textarea
+            id="broadcast-message"
             rows={4}
             value={message}
             onChange={(e) => setMessage(e.target.value)}

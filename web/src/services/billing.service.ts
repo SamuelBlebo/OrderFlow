@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/firebase';
+import { callWithRetry } from '@/utils/callWithRetry';
 import type { PlanId } from '@/types';
 
 interface ChangePlanResult {
@@ -16,6 +17,8 @@ const changePlanCallable = httpsCallable<{ plan: PlanId }, ChangePlanResult>(fun
  * treat it as unexpected.
  */
 export async function changePlan(plan: PlanId): Promise<ChangePlanResult> {
-  const result = await changePlanCallable({ plan });
+  // Safe to retry: a Free downgrade is idempotent, and the paid-plan path
+  // always throws "unimplemented" (not retried) rather than charging anyone.
+  const result = await callWithRetry(() => changePlanCallable({ plan }));
   return result.data;
 }
