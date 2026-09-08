@@ -16,6 +16,8 @@ export const orderItemsRef = (orgId: string, orderId: string) =>
   ordersRef(orgId).doc(orderId).collection('orderItems');
 export const customersRef = (orgId: string) => orgRef(orgId).collection('customers');
 export const sessionsRef = (orgId: string) => orgRef(orgId).collection('sessions');
+/** A record of each broadcast a merchant sends, for their own history — not the send queue itself. */
+export const broadcastsRef = (orgId: string) => orgRef(orgId).collection('broadcasts');
 
 /**
  * Every connected number lives here, keyed by its Meta phone_number_id — the

@@ -430,10 +430,13 @@ async function placeOrder(ctx: Ctx): Promise<Partial<Session>> {
       {
         name,
         phone: `+${ctx.waId}`,
+        address,
         orderCount: ((customer.exists ? (customer.get('orderCount') as number) : 0) ?? 0) + 1,
         totalSpent: ((customer.exists ? (customer.get('totalSpent') as number) : 0) ?? 0) + total,
         lastOrderAt: FieldValue.serverTimestamp(),
-        ...(customer.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
+        updatedAt: FieldValue.serverTimestamp(),
+        // Note is merchant-authored (see updateCustomerNote); never overwrite it here.
+        ...(customer.exists ? {} : { note: null, createdAt: FieldValue.serverTimestamp() }),
       },
       { merge: true },
     );

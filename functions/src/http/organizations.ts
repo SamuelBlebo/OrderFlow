@@ -6,36 +6,7 @@ import { GRAPH_VERSION, TRIAL_DAYS } from '../config';
 import { db, loadCredentialsForOrg, orgRef, whatsappAccountRef } from '../tenant';
 import { sendText } from '../whatsapp/client';
 import { connectWhatsappInput, createOrgInput, testMessageInput } from '../types';
-
-type AuthInfo = { uid: string; token: Record<string, unknown> } | undefined;
-
-function requireAuth(auth: AuthInfo) {
-  if (!auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-  return auth;
-}
-
-/**
- * orgId and role live on the caller's /users/{uid} Firestore document — the
- * same one the web app's signup flow writes and Firestore rules read from
- * (see firestore.rules' `profile()` helper). Custom claims are not used here,
- * so tenancy has exactly one source of truth across the web app and these
- * functions.
- */
-async function requireOrg(auth: AuthInfo) {
-  const user = requireAuth(auth);
-  const profile = await db().collection('users').doc(user.uid).get();
-  const orgId = profile.get('orgId') as string | undefined;
-  if (!orgId) throw new HttpsError('failed-precondition', 'This account has no business yet.');
-  return { uid: user.uid, orgId, role: (profile.get('role') as string) ?? 'staff' };
-}
-
-async function requireAdmin(auth: AuthInfo) {
-  const ctx = await requireOrg(auth);
-  if (!['owner', 'admin'].includes(ctx.role)) {
-    throw new HttpsError('permission-denied', 'Only owners and admins can do this.');
-  }
-  return ctx;
-}
+import { requireAdmin, requireAuth } from './guards';
 
 /**
  * Alternate tenant-provisioning path, not currently called by the web app —

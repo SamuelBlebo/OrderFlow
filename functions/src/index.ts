@@ -17,6 +17,7 @@ export {
   disconnectWhatsapp,
   sendTestMessage,
 } from './http/organizations';
+export { sendBroadcast } from './http/customers';
 
 // Background work.
 export { onOrderStatusChange } from './triggers/onOrderStatusChange';

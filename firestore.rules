@@ -48,8 +48,17 @@ service cloud.firestore {
 
       match /customers/{customerId} {
         allow read: if memberOf(orgId);
-        // Customer records are written by Cloud Functions from inbound WhatsApp
-        // messages, never by the browser.
+        // Every field but the note comes from inbound WhatsApp activity, via
+        // Cloud Functions — the one thing a merchant can add here directly.
+        allow update: if memberOf(orgId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note', 'updatedAt']);
+        allow create, delete: if false;
+      }
+
+      // A record of each broadcast sent — written by sendBroadcast
+      // (functions/src/http/customers.ts) via the Admin SDK, read-only here.
+      match /broadcasts/{broadcastId} {
+        allow read: if memberOf(orgId);
         allow write: if false;
       }
 

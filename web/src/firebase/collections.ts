@@ -5,7 +5,7 @@ import {
   type DocumentReference,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Customer, Order, OrderItem, Organization, Product, UserProfile } from '@/types';
+import type { Broadcast, Customer, Order, OrderItem, Organization, Product, UserProfile } from '@/types';
 
 /**
  * Every tenant-owned collection hangs off /organizations/{orgId}.
@@ -19,6 +19,7 @@ export const paths = {
   customers: 'customers',
   orders: 'orders',
   orderItems: 'orderItems',
+  broadcasts: 'broadcasts',
 } as const;
 
 export const orgsRef = () =>
@@ -38,6 +39,12 @@ export const productRef = (orgId: string, productId: string) =>
 
 export const customersRef = (orgId: string) =>
   collection(db, paths.organizations, orgId, paths.customers) as CollectionReference<Customer>;
+
+export const customerRef = (orgId: string, customerId: string) =>
+  doc(db, paths.organizations, orgId, paths.customers, customerId) as DocumentReference<Customer>;
+
+export const broadcastsRef = (orgId: string) =>
+  collection(db, paths.organizations, orgId, paths.broadcasts) as CollectionReference<Broadcast>;
 
 export const ordersRef = (orgId: string) =>
   collection(db, paths.organizations, orgId, paths.orders) as CollectionReference<Order>;

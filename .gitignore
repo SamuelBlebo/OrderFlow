@@ -1,6 +1,7 @@
 node_modules
 dist
 functions/lib
+.claude
 .env
 .env.local
 .env.*.local

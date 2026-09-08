@@ -72,6 +72,13 @@ export const testMessageInput = z.object({
   to: z.string().regex(/^\+?[0-9]{8,15}$/),
 });
 
+export const broadcastInput = z.object({
+  message: z.string().min(1).max(1000),
+  // Capped so one call stays well inside the callable's execution window —
+  // see BROADCAST_BATCH_SIZE and the explicit timeout in http/customers.ts.
+  customerIds: z.array(z.string().min(1)).min(1).max(300),
+});
+
 /* ------------------------------ Webhook shapes ----------------------------- */
 
 export interface InboundMessage {

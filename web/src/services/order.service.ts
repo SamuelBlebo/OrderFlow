@@ -11,6 +11,10 @@ export const recentOrdersQuery = (orgId: string, count = 5) =>
 export const pendingOrdersQuery = (orgId: string) =>
   query(ordersRef(orgId), where('status', '==', 'pending'), orderBy('createdAt', 'desc'));
 
+/** A customer's order history — same composite index the bot's "2 Track Order" reply uses. */
+export const customerOrdersQuery = (orgId: string, customerId: string) =>
+  query(ordersRef(orgId), where('customerId', '==', customerId), orderBy('createdAt', 'desc'));
+
 export interface OrderUpdatePatch {
   status?: OrderStatus;
   note?: string | null;
