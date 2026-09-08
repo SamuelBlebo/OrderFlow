@@ -5,12 +5,24 @@ import {
   type DocumentReference,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Broadcast, Customer, Order, OrderItem, Organization, Product, UserProfile } from '@/types';
+import type {
+  Broadcast,
+  Customer,
+  FeatureFlag,
+  Order,
+  OrderItem,
+  Organization,
+  PlatformAdmin,
+  PlatformLog,
+  Product,
+  UserProfile,
+} from '@/types';
 
 /**
  * Every tenant-owned collection hangs off /organizations/{orgId}.
  * Nothing else in the app builds a Firestore path by hand, so tenant scoping
- * is impossible to forget.
+ * is impossible to forget. platformAdmins/featureFlags/platformLogs are the
+ * deliberate exception — platform-admin concerns, never tenant-scoped.
  */
 export const paths = {
   organizations: 'organizations',
@@ -20,6 +32,9 @@ export const paths = {
   orders: 'orders',
   orderItems: 'orderItems',
   broadcasts: 'broadcasts',
+  platformAdmins: 'platformAdmins',
+  featureFlags: 'featureFlags',
+  platformLogs: 'platformLogs',
 } as const;
 
 export const orgsRef = () =>
@@ -30,6 +45,19 @@ export const orgRef = (orgId: string) =>
 
 export const userRef = (uid: string) =>
   doc(db, paths.users, uid) as DocumentReference<UserProfile>;
+
+/** Existence of this doc is the platform-admin grant — see firestore.rules' isPlatformAdmin(). */
+export const platformAdminRef = (uid: string) =>
+  doc(db, paths.platformAdmins, uid) as DocumentReference<PlatformAdmin>;
+
+export const featureFlagsRef = () =>
+  collection(db, paths.featureFlags) as CollectionReference<FeatureFlag>;
+
+export const featureFlagRef = (flagId: string) =>
+  doc(db, paths.featureFlags, flagId) as DocumentReference<FeatureFlag>;
+
+export const platformLogsRef = () =>
+  collection(db, paths.platformLogs) as CollectionReference<PlatformLog>;
 
 export const productsRef = (orgId: string) =>
   collection(db, paths.organizations, orgId, paths.products) as CollectionReference<Product>;

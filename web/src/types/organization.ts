@@ -1,3 +1,4 @@
+import type { Timestamp } from 'firebase/firestore';
 import type { Timestamps } from './common';
 
 export type BusinessCategory =
@@ -51,4 +52,8 @@ export interface Organization extends Timestamps {
   memberUids: string[];
   subscription: Subscription;
   whatsapp: WhatsAppAccount;
+  /** Set only by suspendMerchant/unsuspendMerchant (platform admin) — a merchant can never write this. */
+  suspended: boolean;
+  suspendedReason: string | null;
+  suspendedAt: Timestamp | null;
 }

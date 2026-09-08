@@ -8,6 +8,14 @@ export const ORDER_LIMITS: Record<PlanId, number | null> = {
   pro: null,
 };
 
+/** Mirrors the priceUsd values in web/src/config/plans.ts — used for platform-admin MRR. */
+export const PLAN_PRICES_USD: Record<PlanId, number> = {
+  free: 0,
+  starter: 15,
+  growth: 39,
+  pro: 89,
+};
+
 function currentPeriodKey(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }

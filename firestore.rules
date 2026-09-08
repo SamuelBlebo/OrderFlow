@@ -21,6 +21,14 @@ service cloud.firestore {
       return memberOf(orgId) && profile().role in roles;
     }
 
+    // OrderFlow staff, not a merchant — provisioned out-of-band (see
+    // functions/src/http/admin.ts), never self-serve. Deliberately checked
+    // by document existence rather than a claim, so it reads through the
+    // same single Firestore-is-the-source-of-truth model as memberOf/hasRole.
+    function isPlatformAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/platformAdmins/$(request.auth.uid));
+    }
+
     // ---- users ---------------------------------------------------------
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
@@ -42,8 +50,15 @@ service cloud.firestore {
       // the only path that can eventually confirm a real payment before
       // granting a paid tier. A client writing this directly would be
       // billing fraud by omission.
+      // Suspension is a platform-admin moderation action (suspendMerchant /
+      // unsuspendMerchant in functions/src/http/admin.ts) — a merchant
+      // marking themselves un-suspended would defeat the entire point.
       allow update: if hasRole(orgId, ['owner', 'admin'])
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscription']);
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['subscription', 'suspended', 'suspendedReason', 'suspendedAt']);
+      // Recursive delete only — see deleteMerchant, which uses the Admin SDK
+      // and so bypasses this rule entirely, same as every other cross-tenant
+      // platform-admin action.
       allow delete: if false;
 
       // ---- tenant-owned data ------------------------------------------
@@ -93,6 +108,29 @@ service cloud.firestore {
     // catch-all below would deny it anyway.
     match /whatsappAccounts/{phoneNumberId} {
       allow read, write: if false;
+    }
+
+    // ---- platform admin ---------------------------------------------------
+    // Grants live only here — a user reads their own doc to know whether the
+    // admin UI should even render for them. Only the Admin SDK (a one-off
+    // provisioning script, never a callable) writes this collection: there is
+    // no self-serve "become an admin" path anywhere in this app on purpose.
+    match /platformAdmins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Platform-wide config, not merchant tenant data — safe for admins to
+    // read/write directly rather than routing through a callable.
+    match /featureFlags/{flagId} {
+      allow read, write: if isPlatformAdmin();
+    }
+
+    // Admin-action audit trail — written only by suspendMerchant /
+    // unsuspendMerchant / deleteMerchant / setFeatureFlag via the Admin SDK.
+    match /platformLogs/{logId} {
+      allow read: if isPlatformAdmin();
+      allow write: if false;
     }
 
     // Anything not matched above is denied.

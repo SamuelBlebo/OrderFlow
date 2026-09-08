@@ -60,6 +60,23 @@ export async function handleMessage(
   }
 
   const profile = await loadOrgProfile(orgId);
+
+  // A platform admin suspended this merchant (functions/src/http/admin.ts) —
+  // stop taking new orders, but still mark the message handled so WhatsApp's
+  // retry doesn't resend this notice every few seconds.
+  if (profile.suspended) {
+    logger.info('Message received for a suspended organization', { orgId, messageId: message.id });
+    await sendText(creds, waId, 'This shop is temporarily unavailable. Please check back later.');
+    await sessionDoc.set(
+      {
+        handledMessageIds: [...(session.handledMessageIds ?? []), message.id].slice(-20),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    return;
+  }
+
   const ctx: Ctx = { orgId, creds, profile, waId, profileName, session };
 
   const intent = readIntent(message);

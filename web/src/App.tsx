@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { ProtectedRoute, PublicOnlyRoute, OnboardingRoute } from '@/components/routing/ProtectedRoute';
+import { ProtectedRoute, PublicOnlyRoute, OnboardingRoute, RequirePlatformAdmin } from '@/components/routing/ProtectedRoute';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { FullPageSpinner } from '@/components/ui';
@@ -20,6 +20,21 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 // Recharts adds real weight to the bundle — keep it out of the path everyone
 // pays for and only load it when a merchant actually opens Analytics.
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
+
+// The whole platform-admin surface is a separate, low-traffic tool used by
+// OrderFlow staff, not merchants — no reason for every merchant's bundle to
+// include it.
+const AdminLayout = lazy(() => import('@/layouts/AdminLayout').then((m) => ({ default: m.AdminLayout })));
+const AdminDashboardPage = lazy(() =>
+  import('@/pages/admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+);
+const AdminMerchantsPage = lazy(() =>
+  import('@/pages/admin/AdminMerchantsPage').then((m) => ({ default: m.AdminMerchantsPage })),
+);
+const AdminLogsPage = lazy(() => import('@/pages/admin/AdminLogsPage').then((m) => ({ default: m.AdminLogsPage })));
+const AdminFeatureFlagsPage = lazy(() =>
+  import('@/pages/admin/AdminFeatureFlagsPage').then((m) => ({ default: m.AdminFeatureFlagsPage })),
+);
 
 export default function App() {
   return (
@@ -56,6 +71,21 @@ export default function App() {
                 />
                 <Route path="/whatsapp" element={<WhatsAppPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+            </Route>
+
+            <Route element={<RequirePlatformAdmin />}>
+              <Route
+                element={
+                  <Suspense fallback={<FullPageSpinner />}>
+                    <AdminLayout />
+                  </Suspense>
+                }
+              >
+                <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/merchants" element={<AdminMerchantsPage />} />
+                <Route path="/admin/logs" element={<AdminLogsPage />} />
+                <Route path="/admin/flags" element={<AdminFeatureFlagsPage />} />
               </Route>
             </Route>
 

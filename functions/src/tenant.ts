@@ -49,6 +49,8 @@ export interface OrgProfile {
   deliveryFee: number;
   greeting: string;
   supportPhone?: string;
+  /** Set by a platform admin — see functions/src/http/admin.ts's suspendMerchant. */
+  suspended: boolean;
 }
 
 export async function loadOrgProfile(orgId: string): Promise<OrgProfile> {
@@ -60,6 +62,7 @@ export async function loadOrgProfile(orgId: string): Promise<OrgProfile> {
     deliveryFee: (data.deliveryFee as number) ?? 0,
     greeting: (data.greeting as string) ?? 'Welcome! Browse our items and order right here.',
     supportPhone: data.supportPhone as string | undefined,
+    suspended: (data.suspended as boolean) ?? false,
   };
 }
 

@@ -38,6 +38,9 @@ export async function createOrganization({ name, ownerUid, phone = null }: Creat
       greeting: `Hi! Welcome to ${name}. Reply MENU to see what we have.`,
       connectedAt: null,
     },
+    suspended: false,
+    suspendedReason: null,
+    suspendedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   } as never);

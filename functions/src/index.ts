@@ -19,6 +19,13 @@ export {
 } from './http/organizations';
 export { sendBroadcast } from './http/customers';
 export { changePlan, billingWebhook } from './http/billing';
+export {
+  getPlatformMetrics,
+  listMerchants,
+  suspendMerchant,
+  unsuspendMerchant,
+  deleteMerchant,
+} from './http/admin';
 
 // Background work.
 export { onOrderStatusChange } from './triggers/onOrderStatusChange';
