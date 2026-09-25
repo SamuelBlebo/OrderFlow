@@ -31,7 +31,10 @@ export interface Subscription {
   ordersUsedThisPeriod: number;
   paymentProvider: PaymentProvider | null;
   externalCustomerId: string | null;
+  /** For Paystack: the saved card's authorization_code, re-charged monthly — see functions/src/triggers/renewSubscriptions.ts. */
   externalSubscriptionId: string | null;
+  /** The email Paystack charged at checkout, reused for renewal — set only once a paid plan is active. */
+  billingEmail: string | null;
 }
 
 export interface WhatsAppAccount {
@@ -41,7 +44,8 @@ export interface WhatsAppAccount {
   wabaId: string | null;
   verifiedName: string | null;
   greeting: string;
-  connectedAt: string | null;
+  /** Written with FieldValue.serverTimestamp() — a real Timestamp, not a string. */
+  connectedAt: Timestamp | null;
 }
 
 export interface Organization extends Timestamps {

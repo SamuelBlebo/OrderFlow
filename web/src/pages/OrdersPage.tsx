@@ -253,6 +253,23 @@ function OrderDetailModal({
           <p className="text-ink">{order.deliveryAddress}</p>
         </div>
 
+        {(order.statusHistory?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-semibold text-muted">Delivery timeline</p>
+            <ol className="space-y-2 border-l border-line pl-3">
+              {[...(order.statusHistory ?? [])]
+                .sort((a, b) => a.changedAt.toMillis() - b.changedAt.toMillis())
+                .map((event, index) => (
+                  <li key={`${event.status}-${index}`} className="relative text-xs">
+                    <span className="absolute -left-[15px] top-1 h-2 w-2 rounded-full bg-brand" aria-hidden />
+                    <span className="font-semibold text-ink">{STATUS_LABEL[event.status]}</span>{' '}
+                    <span className="text-muted">{formatDate(event.changedAt)}</span>
+                  </li>
+                ))}
+            </ol>
+          </div>
+        )}
+
         <div className="rounded-xl border border-line">
           {order.items.map((item) => (
             <div

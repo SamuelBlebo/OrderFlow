@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardBody, CardHeader } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PlanCard } from '@/components/billing/PlanCard';
@@ -21,6 +22,16 @@ export function SettingsPage() {
   const [changingPlan, setChangingPlan] = useState<PlanId | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('paystack') !== 'return') return;
+    toast.success("Payment received — your plan updates within a few seconds once Paystack's confirmation arrives.");
+    setSearchParams((prev) => {
+      prev.delete('paystack');
+      return prev;
+    });
+  }, [searchParams, setSearchParams, toast]);
+
   const currentPlan = PLAN_CATALOG[org!.subscription.plan];
   const ordersUsed = org!.subscription.ordersUsedThisPeriod ?? 0;
 
@@ -29,7 +40,14 @@ export function SettingsPage() {
     setChangingPlan(plan);
     setPlanError(null);
     try {
-      await changePlan(plan);
+      const result = await changePlan(plan);
+      if (result.checkoutUrl) {
+        // The plan hasn't actually changed yet — it only does once Paystack
+        // confirms payment (billingWebhook). Send the merchant to pay; they
+        // land back on Settings and see the new plan reflect once it lands.
+        window.location.href = result.checkoutUrl;
+        return;
+      }
       toast.success(`Switched to the ${PLAN_CATALOG[plan].name} plan.`);
     } catch (error) {
       setPlanError(toMessage(error));
@@ -48,6 +66,11 @@ export function SettingsPage() {
           description={`You're on the ${currentPlan.name} plan${org!.subscription.status === 'trialing' ? ' (trial)' : ''}.`}
         />
         <CardBody className="space-y-4">
+          {org!.subscription.status === 'past_due' && (
+            <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
+              Your last renewal charge didn't go through. Update or re-add a card by choosing your plan again below.
+            </p>
+          )}
           <UsageMeter label="Products" used={productCount} limit={currentPlan.productLimit} />
           <UsageMeter label="Orders this month" used={ordersUsed} limit={currentPlan.orderLimit} />
         </CardBody>

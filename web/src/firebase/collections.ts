@@ -9,6 +9,7 @@ import type {
   Broadcast,
   Customer,
   FeatureFlag,
+  Message,
   Order,
   OrderItem,
   Organization,
@@ -32,6 +33,7 @@ export const paths = {
   orders: 'orders',
   orderItems: 'orderItems',
   broadcasts: 'broadcasts',
+  messages: 'messages',
   platformAdmins: 'platformAdmins',
   featureFlags: 'featureFlags',
   platformLogs: 'platformLogs',
@@ -70,6 +72,17 @@ export const customersRef = (orgId: string) =>
 
 export const customerRef = (orgId: string, customerId: string) =>
   doc(db, paths.organizations, orgId, paths.customers, customerId) as DocumentReference<Customer>;
+
+/** One customer's full conversation, either direction — see the Inbox. */
+export const messagesRef = (orgId: string, customerId: string) =>
+  collection(
+    db,
+    paths.organizations,
+    orgId,
+    paths.customers,
+    customerId,
+    paths.messages,
+  ) as CollectionReference<Message>;
 
 export const broadcastsRef = (orgId: string) =>
   collection(db, paths.organizations, orgId, paths.broadcasts) as CollectionReference<Broadcast>;

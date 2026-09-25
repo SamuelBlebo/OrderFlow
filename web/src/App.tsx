@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { trackPageView } from '@/utils/analyticsTracking';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { ToastProvider } from '@/context/ToastContext';
@@ -12,6 +13,7 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { OnboardingPage } from '@/pages/auth/OnboardingPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { InboxPage } from '@/pages/InboxPage';
 import { OrdersPage } from '@/pages/OrdersPage';
 import { ProductsPage } from '@/pages/ProductsPage';
 import { CustomersPage } from '@/pages/CustomersPage';
@@ -44,12 +46,22 @@ const AdminFeatureFlagsPage = lazy(() =>
   import('@/pages/admin/AdminFeatureFlagsPage').then((m) => ({ default: m.AdminFeatureFlagsPage })),
 );
 
+/** No-ops when analytics isn't configured — see trackPageView. Rendered inside BrowserRouter so useLocation is available. */
+function RouteTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    void trackPageView(location.pathname);
+  }, [location.pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
           <BrowserRouter>
+            <RouteTracker />
             <Routes>
               <Route element={<MarketingLayout />}>
                 <Route path="/" element={<LandingPage />} />
@@ -77,6 +89,7 @@ export default function App() {
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/orders" element={<OrdersPage />} />
+                  <Route path="/inbox" element={<InboxPage />} />
                   <Route path="/products" element={<ProductsPage />} />
                   <Route path="/customers" element={<CustomersPage />} />
                   <Route

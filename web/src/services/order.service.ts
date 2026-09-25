@@ -1,4 +1,4 @@
-import { limit, orderBy, query, serverTimestamp, updateDoc, where, type Timestamp } from 'firebase/firestore';
+import { arrayUnion, limit, orderBy, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { orderRef, ordersRef } from '@/firebase';
 import type { OrderStatus } from '@/types';
 
@@ -31,8 +31,13 @@ export interface OrderUpdatePatch {
  * customer's WhatsApp update, so the browser never holds a Meta token — and
  * it reads whatever rider/ETA already sit on the document at that moment, so
  * setting them in the same patch as the status change is what gets them into
- * that message.
+ * that message. A status change also appends to `statusHistory` — the
+ * delivery timeline OrderDetailModal renders — so a pure delivery-detail
+ * save (no status in the patch) leaves history untouched.
  */
 export function updateOrder(orgId: string, orderId: string, patch: OrderUpdatePatch) {
-  return updateDoc(orderRef(orgId, orderId), { ...patch, updatedAt: serverTimestamp() } as never);
+  const withHistory = patch.status
+    ? { ...patch, statusHistory: arrayUnion({ status: patch.status, changedAt: Timestamp.now() }) }
+    : patch;
+  return updateDoc(orderRef(orgId, orderId), { ...withHistory, updatedAt: serverTimestamp() } as never);
 }

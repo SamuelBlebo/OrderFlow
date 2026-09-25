@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@/components/ui';
+import { reportError } from '@/utils/monitoring';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -24,9 +25,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // TODO: forward to a real error-reporting service (Sentry, etc.) once one is configured.
     // eslint-disable-next-line no-console
     console.error('Unhandled render error', error, info.componentStack);
+    reportError(error, { componentStack: info.componentStack });
   }
 
   render() {

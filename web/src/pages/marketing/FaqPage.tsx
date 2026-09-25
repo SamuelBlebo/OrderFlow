@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { cn } from '@/utils/cn';
 
 interface FaqItem {
@@ -26,7 +27,7 @@ const FAQS: FaqItem[] = [
   {
     question: 'Can I change plans later?',
     answer:
-      'Yes, at any time from Settings. Downgrading to Free applies immediately; moving to a paid plan will be available once card payments are enabled for your region.',
+      'Yes, at any time from Settings. Downgrading to Free applies immediately; moving to a paid plan takes you to a secure Paystack checkout, and the new plan applies as soon as payment goes through.',
   },
   {
     question: 'Is my business data shared with other merchants?',
@@ -46,6 +47,7 @@ const FAQS: FaqItem[] = [
 ];
 
 export function FaqPage() {
+  usePageTitle('FAQ');
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (

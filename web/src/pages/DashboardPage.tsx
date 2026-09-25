@@ -50,6 +50,23 @@ function StatCard({
   );
 }
 
+function ChecklistItem({ done, to, label }: { done: boolean; to: string; label: string }) {
+  return (
+    <li className="flex items-center gap-2 text-sm">
+      <span aria-hidden className={cn(done ? 'text-brand' : 'text-muted')}>
+        {done ? '✓' : '○'}
+      </span>
+      {done ? (
+        <span className="text-muted line-through">{label}</span>
+      ) : (
+        <Link to={to} className="font-semibold text-brand">
+          {label}
+        </Link>
+      )}
+    </li>
+  );
+}
+
 export function DashboardPage() {
   const { org } = useAuth();
   const orgId = org!.id;
@@ -73,15 +90,14 @@ export function DashboardPage() {
     <>
       <PageHeader title="Dashboard" description="What has come in through WhatsApp today." />
 
-      {!org!.whatsapp.connected && (
+      {!statsLoading && (!org!.whatsapp.connected || productRows.length === 0) && (
         <Card className="mb-6 border-warn/40">
-          <CardBody className="flex flex-wrap items-center gap-3 p-4">
-            <p className="text-sm text-ink">
-              <strong>WhatsApp is not connected.</strong> Orders cannot reach you yet.
-            </p>
-            <Link to="/whatsapp" className="text-sm font-semibold text-brand">
-              Connect it now
-            </Link>
+          <CardBody className="p-4">
+            <p className="text-sm font-semibold text-ink">Getting started</p>
+            <ul className="mt-2 space-y-1.5">
+              <ChecklistItem done={org!.whatsapp.connected} to="/whatsapp" label="Connect WhatsApp" />
+              <ChecklistItem done={productRows.length > 0} to="/products" label="Add your first product" />
+            </ul>
           </CardBody>
         </Card>
       )}

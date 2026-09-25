@@ -1,3 +1,5 @@
+import { usePageTitle } from '@/hooks/usePageTitle';
+
 interface HelpArticle {
   title: string;
   body: string[];
@@ -35,7 +37,7 @@ const SECTIONS: HelpSection[] = [
         title: 'What you need before connecting',
         body: [
           'A WhatsApp Business Account and phone number registered on the Meta WhatsApp Cloud API. If you don\'t have one yet, Meta sets this up through Meta Business Suite.',
-          "OrderFlow never touches your Meta account directly — you provide your phone number ID and access token once, from Settings, and OrderFlow's servers use them to send and receive messages on your behalf.",
+          "OrderFlow never touches your Meta account directly — you provide your phone number ID and access token once, from the WhatsApp page (or connect with one click if your workspace has Facebook sign-in enabled there), and OrderFlow's servers use them to send and receive messages on your behalf.",
         ],
       },
       {
@@ -95,7 +97,7 @@ const SECTIONS: HelpSection[] = [
       {
         title: 'Changing plans',
         body: [
-          'Downgrade to Free at any time from Settings — it applies immediately. Paid plans will be purchasable from the dashboard once card payments are enabled for your region.',
+          'Change plans any time from Settings. Downgrading to Free applies immediately; moving to a paid plan opens a secure Paystack checkout, and the new plan applies as soon as payment goes through.',
         ],
       },
     ],
@@ -103,6 +105,7 @@ const SECTIONS: HelpSection[] = [
 ];
 
 export function HelpCenterPage() {
+  usePageTitle('Help Center');
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
       <h1 className="text-3xl font-bold tracking-tight text-ink">Help Center</h1>

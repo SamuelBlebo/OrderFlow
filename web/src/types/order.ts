@@ -25,6 +25,11 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface OrderStatusEvent {
+  status: OrderStatus;
+  changedAt: Timestamp;
+}
+
 export interface Order extends Timestamps {
   number: number;
   customerId: string;
@@ -42,4 +47,6 @@ export interface Order extends Timestamps {
   riderName: string | null;
   riderPhone: string | null;
   estimatedDeliveryAt: Timestamp | null;
+  /** Every status this order has passed through, oldest first — missing/absent on an order placed before this field existed. */
+  statusHistory?: OrderStatusEvent[];
 }

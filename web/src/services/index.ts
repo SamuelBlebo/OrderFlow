@@ -4,5 +4,7 @@ export * from './product.service';
 export * from './order.service';
 export * from './customer.service';
 export * from './broadcast.service';
+export * from './inbox.service';
+export * from './whatsapp.service';
 export * from './billing.service';
 export * from './admin.service';

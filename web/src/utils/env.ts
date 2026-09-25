@@ -22,4 +22,13 @@ export const env = {
     appId: required('VITE_FIREBASE_APP_ID'),
   },
   useEmulators: import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true',
+  /** Both empty until a Meta App is actually configured for Embedded Signup — see WhatsAppPage.tsx. */
+  meta: {
+    appId: import.meta.env.VITE_META_APP_ID ?? '',
+    configId: import.meta.env.VITE_META_CONFIG_ID ?? '',
+  },
+  /** Empty until a Sentry project exists — see utils/monitoring.ts. */
+  sentryDsn: import.meta.env.VITE_SENTRY_DSN ?? '',
+  /** Empty until Firebase Analytics is enabled for this project — see utils/analyticsTracking.ts. */
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID ?? '',
 } as const;

@@ -12,6 +12,8 @@ const options: FirebaseOptions = {
   storageBucket: env.firebase.storageBucket,
   messagingSenderId: env.firebase.messagingSenderId,
   appId: env.firebase.appId,
+  // Optional — only present once Firebase Analytics is enabled for this project. See utils/analyticsTracking.ts.
+  ...(env.measurementId ? { measurementId: env.measurementId } : {}),
 };
 
 export const app = initializeApp(options);

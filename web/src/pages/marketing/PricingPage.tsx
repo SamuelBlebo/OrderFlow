@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
 import { PLAN_CATALOG, PLAN_ORDER, getPlanPrice } from '@/config/plans';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { formatMoney } from '@/utils/format';
 import { detectCurrency } from '@/utils/detectCurrency';
 import { cn } from '@/utils/cn';
@@ -8,6 +9,7 @@ import { cn } from '@/utils/cn';
 const HIGHLIGHTED_PLAN = 'growth';
 
 export function PricingPage() {
+  usePageTitle('Pricing');
   const currency = detectCurrency();
 
   return (

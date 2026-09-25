@@ -1,6 +1,9 @@
+import { usePageTitle } from '@/hooks/usePageTitle';
+
 const LAST_UPDATED = 'September 7, 2026';
 
 export function PrivacyPolicyPage() {
+  usePageTitle('Privacy Policy');
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
       <h1 className="text-3xl font-bold tracking-tight text-ink">Privacy Policy</h1>

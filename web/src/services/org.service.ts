@@ -29,6 +29,7 @@ export async function createOrganization({ name, ownerUid, phone = null, currenc
       paymentProvider: null,
       externalCustomerId: null,
       externalSubscriptionId: null,
+      billingEmail: null,
     },
     whatsapp: {
       connected: false,

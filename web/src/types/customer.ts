@@ -13,6 +13,10 @@ export interface Customer extends Timestamps {
   orderCount: number;
   totalSpent: number;
   lastOrderAt: Timestamp | null;
-  /** The only field a merchant can write directly — see firestore.rules. */
+  /** The only fields a merchant can write directly — see firestore.rules. */
   note: string | null;
+  /** Bumped on every inbound WhatsApp message; reset to 0 when the Inbox opens the conversation or a reply is sent. */
+  unreadCount: number;
+  /** Either direction — set by every message, in or out, so the Inbox can sort by recent activity. */
+  lastMessageAt: Timestamp | null;
 }
