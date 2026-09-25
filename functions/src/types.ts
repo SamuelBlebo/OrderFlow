@@ -61,11 +61,18 @@ export const createOrgInput = z.object({
   fullName: z.string().min(2).max(80),
 });
 
+/** displayPhone is deliberately not here — connectWhatsapp trusts Meta's own probe response for it, not whatever a merchant typed. */
 export const connectWhatsappInput = z.object({
   phoneNumberId: z.string().min(5).max(64),
   businessAccountId: z.string().min(5).max(64),
-  displayPhone: z.string().regex(/^\+[0-9]{8,15}$/),
   accessToken: z.string().min(20).max(500),
+});
+
+/** What the Embedded Signup flow hands back client-side — see WhatsAppPage.tsx. */
+export const exchangeEmbeddedSignupInput = z.object({
+  code: z.string().min(10),
+  phoneNumberId: z.string().min(5).max(64),
+  businessAccountId: z.string().min(5).max(64),
 });
 
 export const testMessageInput = z.object({
@@ -77,6 +84,11 @@ export const broadcastInput = z.object({
   // Capped so one call stays well inside the callable's execution window —
   // see BROADCAST_BATCH_SIZE and the explicit timeout in http/customers.ts.
   customerIds: z.array(z.string().min(1)).min(1).max(300),
+});
+
+export const sendReplyInput = z.object({
+  customerId: z.string().min(1),
+  text: z.string().min(1).max(1000),
 });
 
 /* ------------------------------ Webhook shapes ----------------------------- */

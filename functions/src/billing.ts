@@ -1,4 +1,5 @@
 export type PlanId = 'free' | 'starter' | 'growth' | 'pro';
+export type Currency = 'GHS' | 'NGN' | 'KES' | 'USD';
 
 /** Mirrors the orderLimit values in web/src/config/plans.ts — keep both in sync. */
 export const ORDER_LIMITS: Record<PlanId, number | null> = {
@@ -14,6 +15,19 @@ export const PLAN_PRICES_USD: Record<PlanId, number> = {
   starter: 15,
   growth: 39,
   pro: 89,
+};
+
+/**
+ * Mirrors localPricing in web/src/config/plans.ts exactly — keep both in
+ * sync. This is what changePlan actually charges: never trust a
+ * client-supplied amount for a paid upgrade, always look the price up
+ * server-side from (plan, org.currency).
+ */
+export const PLAN_LOCAL_PRICES: Record<PlanId, Record<Currency, number>> = {
+  free: { GHS: 0, NGN: 0, KES: 0, USD: 0 },
+  starter: { GHS: 50, NGN: 5000, KES: 450, USD: 15 },
+  growth: { GHS: 150, NGN: 15000, KES: 1300, USD: 39 },
+  pro: { GHS: 350, NGN: 36000, KES: 3000, USD: 89 },
 };
 
 function currentPeriodKey(now: Date): string {

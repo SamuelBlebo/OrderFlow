@@ -15,6 +15,9 @@ export const ordersRef = (orgId: string) => orgRef(orgId).collection('orders');
 export const orderItemsRef = (orgId: string, orderId: string) =>
   ordersRef(orgId).doc(orderId).collection('orderItems');
 export const customersRef = (orgId: string) => orgRef(orgId).collection('customers');
+export const customerRef = (orgId: string, customerId: string) => customersRef(orgId).doc(customerId);
+/** One customer's full conversation, either direction — see the Inbox and worker/src/messages.ts. */
+export const messagesRef = (orgId: string, customerId: string) => customerRef(orgId, customerId).collection('messages');
 export const sessionsRef = (orgId: string) => orgRef(orgId).collection('sessions');
 /** A record of each broadcast a merchant sends, for their own history — not the send queue itself. */
 export const broadcastsRef = (orgId: string) => orgRef(orgId).collection('broadcasts');

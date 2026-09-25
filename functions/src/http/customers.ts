@@ -1,9 +1,9 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
-import { broadcastsRef, loadCredentialsForOrg } from '../tenant';
+import { broadcastsRef, customerRef, loadCredentialsForOrg, messagesRef } from '../tenant';
 import { sendText } from '../whatsapp/client';
-import { broadcastInput } from '../types';
+import { broadcastInput, sendReplyInput } from '../types';
 import { requireAdmin } from './guards';
 import { checkRateLimit } from '../rateLimit';
 
@@ -67,4 +67,41 @@ export const sendBroadcast = onCall({ timeoutSeconds: 300 }, async (request) => 
   });
 
   return { ok: true as const, sentCount, failedCount: failedIds.length };
+});
+
+/**
+ * The Inbox's reply box — one customer, not a broadcast list, so it skips
+ * broadcastsRef entirely and instead logs straight into that customer's own
+ * `messages` subcollection (the same log the Worker writes bot replies and
+ * inbound messages to) and clears unreadCount, since a merchant just
+ * actively answered.
+ */
+export const sendReply = onCall(async (request) => {
+  const { orgId } = await requireAdmin(request.auth);
+  const parsed = sendReplyInput.safeParse(request.data);
+  if (!parsed.success) throw new HttpsError('invalid-argument', 'Enter a message to send.');
+
+  await checkRateLimit(`reply:${orgId}`, 60, 60);
+
+  const { customerId, text } = parsed.data;
+  const creds = await loadCredentialsForOrg(orgId);
+  if (!creds) throw new HttpsError('failed-precondition', 'Connect a WhatsApp number first.');
+
+  const result = await sendText(creds, customerId, text);
+  if (!result.ok) throw new HttpsError('internal', 'WhatsApp would not accept that message.');
+
+  await messagesRef(orgId, customerId).add({
+    direction: 'out',
+    type: 'text',
+    body: text,
+    waMessageId: null,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  await customerRef(orgId, customerId).update({
+    unreadCount: 0,
+    lastMessageAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { ok: true as const };
 });

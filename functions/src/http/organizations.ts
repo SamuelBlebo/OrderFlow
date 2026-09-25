@@ -2,10 +2,10 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
-import { GRAPH_VERSION, TRIAL_DAYS } from '../config';
+import { GRAPH_VERSION, META_APP_ID, META_APP_SECRET, TRIAL_DAYS } from '../config';
 import { db, loadCredentialsForOrg, orgRef, whatsappAccountRef } from '../tenant';
 import { sendText } from '../whatsapp/client';
-import { connectWhatsappInput, createOrgInput, testMessageInput } from '../types';
+import { connectWhatsappInput, createOrgInput, exchangeEmbeddedSignupInput, testMessageInput } from '../types';
 import { requireAdmin, requireAuth } from './guards';
 
 /**
@@ -66,18 +66,19 @@ export const createOrganization = onCall(async (request) => {
 });
 
 /**
- * Verifies the credentials against Meta before storing them, then claims the
- * phone_number_id in `whatsappAccounts/` so inbound messages find this tenant.
- * `webhookStatus` starts at "pending" — the webhook itself flips it to
- * "verified" the first time Meta actually delivers a message for this number.
+ * Verifies a token against Meta before storing anything, then claims the
+ * phone_number_id in `whatsappAccounts/` so inbound messages find this
+ * tenant. `webhookStatus` starts at "pending" — the webhook itself flips it
+ * to "verified" the first time Meta actually delivers a message for this
+ * number. Shared by both ways a merchant can connect: pasting credentials
+ * manually (connectWhatsapp) and Embedded Signup
+ * (exchangeEmbeddedSignupCode) — same verification, same claim, same
+ * one-tenant-per-number guarantee either way.
  */
-export const connectWhatsapp = onCall(async (request) => {
-  const { orgId } = await requireAdmin(request.auth);
-  const parsed = connectWhatsappInput.safeParse(request.data);
-  if (!parsed.success) throw new HttpsError('invalid-argument', 'Check the values you copied.');
-
-  const { phoneNumberId, businessAccountId, displayPhone, accessToken } = parsed.data;
-
+async function claimWhatsappNumber(
+  orgId: string,
+  { phoneNumberId, businessAccountId, accessToken }: { phoneNumberId: string; businessAccountId: string; accessToken: string },
+): Promise<string> {
   const probe = await fetch(
     `https://graph.facebook.com/${GRAPH_VERSION.value()}/${phoneNumberId}?fields=display_phone_number,verified_name`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -85,7 +86,11 @@ export const connectWhatsapp = onCall(async (request) => {
   if (!probe.ok) {
     throw new HttpsError('invalid-argument', 'Meta rejected that token or phone number ID.');
   }
-  const { verified_name: verifiedName } = (await probe.json()) as { verified_name?: string };
+  const { display_phone_number: displayPhone, verified_name: verifiedName } = (await probe.json()) as {
+    display_phone_number?: string;
+    verified_name?: string;
+  };
+  if (!displayPhone) throw new HttpsError('invalid-argument', 'Meta did not return a phone number for that id.');
 
   // A phone number can only ever belong to one tenant.
   const account = whatsappAccountRef(phoneNumberId);
@@ -115,6 +120,53 @@ export const connectWhatsapp = onCall(async (request) => {
     });
   });
 
+  return displayPhone;
+}
+
+export const connectWhatsapp = onCall(async (request) => {
+  const { orgId } = await requireAdmin(request.auth);
+  const parsed = connectWhatsappInput.safeParse(request.data);
+  if (!parsed.success) throw new HttpsError('invalid-argument', 'Check the values you copied.');
+
+  const displayPhone = await claimWhatsappNumber(orgId, parsed.data);
+  return { ok: true as const, displayPhone };
+});
+
+/**
+ * The "Connect with Facebook" one-click path (WhatsAppPage.tsx's Embedded
+ * Signup button): the client-side Meta SDK hands back an authorization
+ * `code` plus the phone number/WABA id the merchant picked inside Meta's own
+ * flow. This exchanges that code for a real access token, then reuses
+ * exactly the same claim logic as the manual form.
+ *
+ * The OAuth code-exchange call below follows Meta's documented pattern as of
+ * writing — their Embedded Signup token/response shape has shifted across
+ * Graph API versions before, so verify it against Meta's current docs with a
+ * real App before relying on this in production.
+ */
+export const exchangeEmbeddedSignupCode = onCall({ secrets: [META_APP_SECRET] }, async (request) => {
+  const { orgId } = await requireAdmin(request.auth);
+  const parsed = exchangeEmbeddedSignupInput.safeParse(request.data);
+  if (!parsed.success) throw new HttpsError('invalid-argument', 'Check the values from the signup flow.');
+
+  const appId = META_APP_ID.value();
+  if (!appId) throw new HttpsError('failed-precondition', 'Embedded Signup is not configured on this platform yet.');
+
+  const { code, phoneNumberId, businessAccountId } = parsed.data;
+  const tokenUrl = new URL(`https://graph.facebook.com/${GRAPH_VERSION.value()}/oauth/access_token`);
+  tokenUrl.searchParams.set('client_id', appId);
+  tokenUrl.searchParams.set('client_secret', META_APP_SECRET.value());
+  tokenUrl.searchParams.set('code', code);
+
+  const tokenRes = await fetch(tokenUrl);
+  if (!tokenRes.ok) {
+    logger.error('Embedded Signup code exchange failed', { status: tokenRes.status, detail: await tokenRes.text() });
+    throw new HttpsError('invalid-argument', 'Meta rejected that signup code.');
+  }
+  const { access_token: accessToken } = (await tokenRes.json()) as { access_token?: string };
+  if (!accessToken) throw new HttpsError('internal', 'Meta did not return an access token.');
+
+  const displayPhone = await claimWhatsappNumber(orgId, { phoneNumberId, businessAccountId, accessToken });
   return { ok: true as const, displayPhone };
 });
 

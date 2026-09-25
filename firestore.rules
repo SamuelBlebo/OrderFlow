@@ -69,11 +69,23 @@ service cloud.firestore {
 
       match /customers/{customerId} {
         allow read: if memberOf(orgId);
-        // Every field but the note comes from inbound WhatsApp activity, via
-        // Cloud Functions — the one thing a merchant can add here directly.
+        // Everything but note/unreadCount comes from WhatsApp activity, via
+        // the Worker or a Cloud Function. A merchant can add a note directly,
+        // and can clear unreadCount by opening the conversation in the Inbox
+        // (sendReply, the other way it clears, goes through a callable
+        // instead, since it also has to call the Graph API).
         allow update: if memberOf(orgId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note', 'updatedAt']);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note', 'unreadCount', 'updatedAt']);
         allow create, delete: if false;
+
+        // One customer's full conversation — see the Inbox. Written only by
+        // the Worker (inbound + every bot reply) or sendReply (a merchant's
+        // manual reply), both of which bypass these rules entirely; never by
+        // the client directly.
+        match /messages/{messageId} {
+          allow read: if memberOf(orgId);
+          allow write: if false;
+        }
       }
 
       // A record of each broadcast sent — written by sendBroadcast
@@ -88,7 +100,7 @@ service cloud.firestore {
         allow create: if false; // orders originate from the WhatsApp webhook
         allow update: if memberOf(orgId)
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['status', 'note', 'riderName', 'riderPhone', 'estimatedDeliveryAt', 'updatedAt']);
+               .hasOnly(['status', 'note', 'riderName', 'riderPhone', 'estimatedDeliveryAt', 'statusHistory', 'updatedAt']);
         allow delete: if false;
 
         // Normalized copy of the order's own `items` array — same origin,

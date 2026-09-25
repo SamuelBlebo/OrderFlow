@@ -6,13 +6,18 @@ export const REGION = 'europe-west1';
 
 setGlobalOptions({ region: REGION, maxInstances: 20, memory: '256MiB' });
 
-/** Token Meta echoes back during webhook verification. */
-export const WHATSAPP_VERIFY_TOKEN = defineSecret('WHATSAPP_VERIFY_TOKEN');
-
-/** Meta app secret, used to verify the X-Hub-Signature-256 header. */
-export const META_APP_SECRET = defineSecret('META_APP_SECRET');
-
+/**
+ * WHATSAPP_VERIFY_TOKEN used to live here too — the inbound webhook that
+ * needed it now runs on a Cloudflare Worker (see worker/), set via
+ * `wrangler secret put`, not Firebase Secret Manager. META_APP_SECRET is
+ * back for a different reason: exchangeEmbeddedSignupCode needs it to
+ * complete Meta's OAuth code exchange (http/organizations.ts) — set it with
+ * `firebase functions:secrets:set META_APP_SECRET` again if you'd cleared it.
+ */
 export const GRAPH_VERSION = defineString('GRAPH_VERSION', { default: 'v21.0' });
+export const META_APP_SECRET = defineSecret('META_APP_SECRET');
+/** Not secret — the same id the client-side Embedded Signup SDK uses (VITE_META_APP_ID in web/.env), needed here as the OAuth exchange's client_id. */
+export const META_APP_ID = defineString('META_APP_ID', { default: '' });
 
 /**
  * Stripe/Paystack prep — names settled so a real integration can bind them
@@ -26,5 +31,4 @@ export const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 export const PAYSTACK_SECRET_KEY = defineSecret('PAYSTACK_SECRET_KEY');
 
 export const SESSION_TTL_MINUTES = 60;
-export const CATALOG_PAGE_SIZE = 9; // WhatsApp allows 10 list rows; one is kept for "See more".
 export const TRIAL_DAYS = 14;
