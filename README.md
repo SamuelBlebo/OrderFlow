@@ -2,8 +2,8 @@
 
 A multi-tenant SaaS that lets a small business sell through WhatsApp. Merchants sign up, connect
 their WhatsApp Business number and upload products. Customers just message the business — no
-account, no app, no website — and OrderFlow's Cloud Functions run the chat, create the order and
-keep stock in step.
+account, no app, no website — and a Cloudflare Worker runs the chat, reading and writing the same
+Firestore every merchant's dashboard uses.
 
 ## Repositories
 
@@ -13,12 +13,21 @@ repository with its own copy of the Firebase config — nothing is shared throug
 ```
 orderflow-web/          <- this repo
 ├── web/                 React (Vite + TypeScript) marketing site + merchant dashboard + platform admin
-├── functions/           Cloud Functions — WhatsApp webhook, order writes, billing, admin ops
+├── worker/               Cloudflare Worker — the WhatsApp webhook and bot (see worker/README.md)
+├── functions/            Cloud Functions — everything else: connect/disconnect WhatsApp, billing,
+│                          broadcasts, admin ops, order-status triggers
 ├── firestore.rules      Tenant isolation
 ├── firestore.indexes.json
 ├── storage.rules        Tenant-scoped product images
 └── firebase.json        Hosting, emulators, deploy targets
 ```
+
+**Why two backends?** The WhatsApp webhook used to be a Cloud Function. It moved to a Cloudflare
+Worker so the core "a customer messages the business" path doesn't depend on Firebase's Blaze
+billing plan — everything else (dashboard actions, Firestore triggers, which Workers can't do) has
+no reason to move and stays on Cloud Functions. The Worker reaches the same Firestore over its REST
+API, authenticated as a service account (see `worker/README.md`), so both backends read and write
+identical tenant data.
 
 ## What's built
 
@@ -26,17 +35,39 @@ orderflow-web/          <- this repo
   enforced in `firestore.rules`.
 - **Dashboard** — revenue, orders, pending orders and low-stock at a glance.
 - **Inventory** — products with categories, stock tracking, image upload, search and filters.
-- **Ordering** — the WhatsApp bot (`functions/src/bot/engine.ts`) takes an order end-to-end: browse,
-  pick a quantity, give an address, confirm. Orders land in the dashboard live.
+- **Ordering** — the WhatsApp bot is now a Cloudflare Worker (`worker/`), not a Cloud Function —
+  see "Why two backends?" above. It takes an order end-to-end: resolve the merchant from the
+  receiving WhatsApp number, show that org's real product catalog, build a cart (add by tapping or
+  typing a number/name, edit quantity, remove items), and checkout — which collects a delivery name
+  and address, then creates a real order inside one Firestore transaction (sequential order number,
+  stock reservation re-checked against a second customer racing for the same item, Pending status).
+  Orders land in the dashboard live, same as before. See `worker/README.md`.
 - **Delivery** — move an order through Preparing → Out for Delivery → Delivered, with a WhatsApp
-  update to the customer at each step, and an optional rider assignment.
+  update to the customer at each step, an optional rider assignment, and a delivery timeline on the
+  order (every status change, in order, with a timestamp).
+- **Inbox** (`/inbox`) — every WhatsApp conversation in one place: unread badges, search, and a
+  reply box a merchant can use to message a customer directly (not just the bot) — see
+  `functions/src/http/customers.ts`'s `sendReply`.
 - **Customers** — built from order history automatically, with repeat-customer stats, notes and
   broadcast promotions.
+- **WhatsApp connection** (`/whatsapp`) — connect a number either by pasting credentials from Meta
+  Business Suite (works with no extra Meta App setup beyond what "Deploying to production" already
+  asks for), or with a one-click "Connect with Facebook" button using Meta's Embedded Signup — the
+  latter only appears once `VITE_META_APP_ID`/`VITE_META_CONFIG_ID` are set (see `web/.env.example`),
+  since it needs a Meta App configured for that flow. Disconnect and a test-message button included.
 - **Analytics** — daily/weekly/monthly revenue and order charts, AOV, returning customers, best
   sellers.
 - **Billing** — Free / Starter / Growth / Pro plans (`web/src/config/plans.ts`), usage tracked per
-  billing period; Stripe/Paystack wiring is prepared (secret names reserved in
-  `functions/src/config.ts`) but not live — upgrading throws until real keys are provisioned.
+  billing period. Upgrading opens a Paystack checkout (`changePlan` in `functions/src/http/billing.ts`)
+  for the plan's price in the merchant's own market currency; `billingWebhook` verifies Paystack's
+  signature and only then flips the plan. Renewal is a scheduled function
+  (`functions/src/triggers/renewSubscriptions.ts`) that re-charges the card on file every 30 days
+  rather than relying on Paystack's own Subscription objects — see that file's comment for why.
+  Downgrading to Free (Settings) applies immediately and is also how a merchant cancels — it stops
+  future renewal charges. Needs a `PAYSTACK_SECRET_KEY` to actually run; until then, upgrading throws
+  a clear "not yet available" rather than pretending to charge anyone. **Untested against a live
+  Paystack account** — verify against their current API docs with test-mode keys before relying on
+  this for real money.
 - **Platform admin** — a separate surface (`/admin`) for OrderFlow staff: platform metrics, suspend
   or delete a merchant, feature flags, an audit log. Gated by a `platformAdmins/{uid}` document, not
   by anything a merchant can grant themselves — see "Tenant model" below.
@@ -116,9 +147,11 @@ firebase              config.ts (SDK init + emulators), collections.ts (typed re
 The rule of thumb: pages render, services talk to Firebase, hooks bridge the two. A component never
 imports `firebase/firestore` directly.
 
-`functions/src` mirrors the same idea server-side: `bot/` is the WhatsApp state machine, `http/` is
-callables grouped by domain (`organizations`, `customers`, `billing`, `admin`), `triggers/` reacts to
-Firestore changes, and `whatsapp/client.ts` is the only place that calls the Graph API.
+`functions/src` mirrors the same idea server-side: `http/` is callables grouped by domain
+(`organizations`, `customers`, `billing`, `admin`), `triggers/` reacts to Firestore changes, and
+`whatsapp/client.ts` is the only place *these* functions call the Graph API — sending a broadcast, a
+test message, or a delivery-status update, none of which is inbound webhook traffic. The inbound
+side (webhook + bot) is `worker/src`, a separate deployable — see `worker/README.md`.
 
 ## Routing
 
@@ -139,11 +172,13 @@ Nothing in the app hardcodes a colour.
 
 **Prerequisites:**
 
-- A Firebase project on the **Blaze** (pay-as-you-go) plan — required for Cloud Functions to make
-  outbound calls to the WhatsApp Graph API.
+- A Firebase project on the **Blaze** (pay-as-you-go) plan — required for Cloud Functions
+  (`connectWhatsapp`, billing, admin ops, order-status triggers). The WhatsApp webhook itself no
+  longer needs this — it runs on Cloudflare Workers, which has its own free tier.
+- A Cloudflare account, for the Worker — see `worker/README.md`.
 - A Meta developer account with an app that has the **WhatsApp** product added, used for the
-  platform-wide webhook (see below). Each merchant separately brings their own WhatsApp Business
-  phone number — that part needs no setup from you.
+  platform-wide webhook (see `worker/README.md`). Each merchant separately brings their own
+  WhatsApp Business phone number — that part needs no setup from you.
 
 **1. Create and point the project at this repo**
 
@@ -165,16 +200,16 @@ Cloud Storage, and Cloud Functions.
 firebase deploy --only firestore:rules,firestore:indexes,storage
 ```
 
-**4. Set the two platform-level secrets Cloud Functions need**
+**4. Deploy Cloud Functions**
 
-These belong to the platform, not to any one merchant — merchants never see them.
+`WHATSAPP_VERIFY_TOKEN` moved to the Worker and isn't needed here. `META_APP_SECRET` is needed again,
+though, for a different reason — the Embedded Signup "Connect with Facebook" button
+(`exchangeEmbeddedSignupCode`) needs it to complete Meta's OAuth code exchange. Skip this if you're
+only using the manual WhatsApp connect form (no Embedded Signup):
 
 ```bash
-firebase functions:secrets:set WHATSAPP_VERIFY_TOKEN   # any string you choose — Meta echoes it back once
-firebase functions:secrets:set META_APP_SECRET         # from your Meta app's dashboard, used to verify webhook signatures
+firebase functions:secrets:set META_APP_SECRET   # from your Meta app's Basic Settings
 ```
-
-**5. Deploy Cloud Functions**
 
 ```bash
 cd functions
@@ -183,18 +218,17 @@ npm run build
 firebase deploy --only functions
 ```
 
-The deploy output prints the HTTPS trigger URL for `whatsappWebhook` — copy it, you'll need it next.
-It looks like `https://REGION-PROJECT_ID.cloudfunctions.net/whatsappWebhook` (region is
-`europe-west1`, set in `functions/src/config.ts`).
+`META_APP_ID` (not secret — it's also needed client-side, see step 6) goes in `functions/.env` as
+`META_APP_ID=your-app-id`, the way Cloud Functions v2 `defineString` params read non-secret config.
 
-**6. Configure the Meta app's webhook (one-time, platform-wide)**
+**5. Deploy the WhatsApp Worker and configure Meta's webhook**
 
-In your Meta app's WhatsApp product settings, set the webhook callback URL to the `whatsappWebhook`
-URL from step 5, and the verify token to the value you set in step 4. Subscribe to the `messages`
-field. This one webhook serves every merchant on the platform — the function looks up which
-organization owns an inbound message by the WhatsApp phone number it arrived on.
+Full steps (secrets, `wrangler login`, deploy, pointing Meta's webhook at it) are in
+`worker/README.md` — do that now. This one Worker serves every merchant on the platform; it looks up
+which organization owns an inbound message by the WhatsApp phone number it arrived on, same as the
+Cloud Function it replaced did.
 
-**7. Build and deploy the web app**
+**6. Build and deploy the web app**
 
 ```bash
 cd web
@@ -205,16 +239,22 @@ cd ..
 firebase deploy --only hosting
 ```
 
-**8. Provision your first platform admin**
+`VITE_META_APP_ID`/`VITE_META_CONFIG_ID` in that same `.env.local` are optional — set both only if
+you want the one-click "Connect with Facebook" button on `/whatsapp`; leave them blank and merchants
+just get the manual connect form (works either way, no missing feature, just an extra couple of
+fields to paste).
+
+**7. Provision your first platform admin**
 
 There is no sign-up flow for this — see "Platform admin is a separate grant" above. Do this once,
 from the Firebase console or a one-off Admin SDK script, for whoever runs OrderFlow itself.
 
-**9. Onboard a real merchant**
+**8. Onboard a real merchant**
 
 From here, a merchant signs up through the app like anyone else and connects their own WhatsApp
-number from Settings — that flow (`connectWhatsapp` in `functions/src/http/organizations.ts`)
-verifies their phone number ID and access token against the Graph API before storing them.
+number from the WhatsApp page — that flow (`connectWhatsapp`/`exchangeEmbeddedSignupCode` in
+`functions/src/http/organizations.ts`) verifies their phone number ID and access token against the
+Graph API before storing them.
 
 ## Demo merchant data
 
@@ -248,11 +288,24 @@ The script is safe to re-run — it deletes and rebuilds the demo organization e
 accumulating duplicate data. It prints the login email and password (`demo@orderflow.app` and a
 default password, both overridable via `DEMO_EMAIL`/`DEMO_PASSWORD` env vars) when it finishes.
 
+## Going to production
+
+`PRODUCTION_CHECKLIST.md` is the actual step-by-step — accounts needed, deploy order, how to verify
+the core loop actually works end-to-end (not just that it deploys), optional integrations, what
+monitoring you get for free vs. what needs `VITE_SENTRY_DSN`, and enabling Firestore backups (a GCP
+project setting, not something this repo can turn on for you). `docs/admin-guide.md` covers
+operating `/admin` once you're live — provisioning staff, suspending a merchant, reading the audit
+log.
+
 ## What is not built yet
 
-- **Card payments** — Stripe/Paystack secret names are reserved and `changePlan` is wired to expect
-  them, but no real payment provider is connected. Upgrading to a paid plan throws a clear
-  "not yet available" error rather than silently failing; downgrading to Free always works.
+- **Inbound-message rate limiting on the Worker** — the old Cloud Functions bot capped one customer
+  to 20 messages/minute; the Cloudflare Worker (`worker/src/bot.ts`) doesn't re-implement this yet,
+  since it needs a transaction-backed counter the Firestore-over-REST client doesn't have. Low risk
+  at small scale — see `PRODUCTION_CHECKLIST.md`.
+- **Card payments in production** — the Paystack flow is fully wired (see "What's built" above) but
+  needs a real `PAYSTACK_SECRET_KEY` and has not been exercised against a live or even test-mode
+  Paystack account. Treat it as "should work per their docs," not "verified."
 - **Server-rendering for the marketing site** — it's a client-rendered SPA route like the rest of
   the app, so search-engine indexing of `/`, `/pricing`, etc. is limited without an SSR layer.
 - **Multi-language support** — copy is English-only throughout.
