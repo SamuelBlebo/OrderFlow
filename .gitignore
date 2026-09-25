@@ -6,6 +6,8 @@ functions/lib
 .env.local
 .env.*.local
 .firebase
+.wrangler
+.dev.vars
 firebase-debug.log
 *.log
 .DS_Store

@@ -1,0 +1,19 @@
+name = "orderflow-whatsapp-worker"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Non-secret config. Override per environment with `--var` or environment
+# blocks below if you ever run a staging Worker against a staging Firebase
+# project.
+[vars]
+FIREBASE_PROJECT_ID = "orderflow-001"
+GRAPH_VERSION = "v21.0"
+
+# Secrets are NOT set here — never commit a secret to this file. Set each
+# with `wrangler secret put <NAME>` (see worker/README.md):
+#   WHATSAPP_VERIFY_TOKEN     — the string you also put in Meta's webhook config
+#   META_APP_SECRET           — from the Meta app's Basic Settings
+#   FIREBASE_SERVICE_ACCOUNT  — the full JSON key from Firebase console →
+#                                Project settings → Service accounts →
+#                                Generate new private key, pasted as one line
