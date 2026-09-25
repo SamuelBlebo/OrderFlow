@@ -12,6 +12,9 @@ export type BusinessCategory =
 
 export type PlanId = 'free' | 'starter' | 'growth' | 'pro';
 
+/** Also doubles as the merchant's market for plan pricing — see web/src/config/plans.ts. */
+export type Currency = 'GHS' | 'NGN' | 'KES' | 'USD';
+
 /** Set once a real subscription exists — see changePlan in functions/src/http/billing.ts. */
 export type PaymentProvider = 'stripe' | 'paystack';
 
@@ -46,7 +49,7 @@ export interface Organization extends Timestamps {
   slug: string;
   phone: string | null;
   category: BusinessCategory;
-  currency: 'GHS' | 'NGN' | 'KES' | 'USD';
+  currency: Currency;
   deliveryFee: number;
   ownerUid: string;
   memberUids: string[];

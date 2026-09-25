@@ -1,8 +1,8 @@
 const MESSAGES: Record<string, string> = {
-  'auth/invalid-credential': 'That email and password do not match an account.',
-  'auth/user-not-found': 'No account uses that email.',
+  'auth/invalid-credential': 'Those details do not match an account.',
+  'auth/user-not-found': 'No account found with those details.',
   'auth/wrong-password': 'That password is not right.',
-  'auth/email-already-in-use': 'That email already has an account. Sign in instead.',
+  'auth/email-already-in-use': 'That phone number already has an account. Sign in instead.',
   'auth/weak-password': 'Choose a password with at least 8 characters.',
   'auth/too-many-requests': 'Too many attempts. Wait a minute, then try again.',
   'auth/popup-closed-by-user': 'Sign-in was cancelled.',

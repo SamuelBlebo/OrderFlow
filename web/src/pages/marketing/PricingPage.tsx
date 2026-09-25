@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
-import { PLAN_CATALOG, PLAN_ORDER } from '@/config/plans';
+import { PLAN_CATALOG, PLAN_ORDER, getPlanPrice } from '@/config/plans';
+import { formatMoney } from '@/utils/format';
+import { detectCurrency } from '@/utils/detectCurrency';
 import { cn } from '@/utils/cn';
 
 const HIGHLIGHTED_PLAN = 'growth';
 
 export function PricingPage() {
+  const currency = detectCurrency();
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-16">
       <div className="mx-auto max-w-xl text-center">
@@ -18,6 +22,7 @@ export function PricingPage() {
       <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {PLAN_ORDER.map((planId) => {
           const plan = PLAN_CATALOG[planId];
+          const price = getPlanPrice(plan, currency);
           const highlighted = planId === HIGHLIGHTED_PLAN;
           return (
             <Card
@@ -31,8 +36,10 @@ export function PricingPage() {
               )}
               <h2 className="text-lg font-semibold text-ink">{plan.name}</h2>
               <p className="mt-2">
-                <span className="text-3xl font-bold tracking-tight text-ink">${plan.priceUsd}</span>
-                <span className="text-sm text-muted"> / month</span>
+                <span className="text-3xl font-bold tracking-tight text-ink">
+                  {price === 0 ? 'Free' : formatMoney(price, currency)}
+                </span>
+                {price > 0 && <span className="text-sm text-muted"> / month</span>}
               </p>
 
               <ul className="mt-5 flex-1 space-y-2.5">
@@ -46,7 +53,7 @@ export function PricingPage() {
 
               <Link to="/signup" className="mt-6">
                 <Button variant={highlighted ? 'primary' : 'secondary'} fullWidth>
-                  {plan.priceUsd === 0 ? 'Start free' : 'Get started'}
+                  {price === 0 ? 'Start free' : 'Get started'}
                 </Button>
               </Link>
             </Card>
@@ -55,7 +62,7 @@ export function PricingPage() {
       </div>
 
       <p className="mt-10 text-center text-sm text-muted">
-        Prices are billed in USD regardless of the currency you sell to your own customers in.{' '}
+        Prices shown in {currency} based on your location.{' '}
         <Link to="/faq" className="font-semibold text-brand">
           Have a question?
         </Link>

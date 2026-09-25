@@ -1,21 +1,22 @@
 import { addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { orgRef, orgsRef } from '@/firebase';
 import { slugify } from '@/utils/format';
-import type { Organization } from '@/types';
+import type { Currency, Organization } from '@/types';
 
 interface CreateOrgInput {
   name: string;
   ownerUid: string;
   phone?: string | null;
+  currency: Currency;
 }
 
-export async function createOrganization({ name, ownerUid, phone = null }: CreateOrgInput): Promise<string> {
+export async function createOrganization({ name, ownerUid, phone = null, currency }: CreateOrgInput): Promise<string> {
   const ref = await addDoc(orgsRef(), {
     name,
     slug: slugify(name),
     phone,
     category: 'other',
-    currency: 'GHS',
+    currency,
     deliveryFee: 0,
     ownerUid,
     memberUids: [ownerUid],

@@ -6,10 +6,24 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const registerSchema = loginSchema.extend({
+/** Accepts "+233 24 123 4567", "233241234567", etc. — normalizePhone() strips the rest. */
+export const phoneSchema = z
+  .string()
+  .min(1, 'Enter your phone number')
+  .regex(/^\+?[0-9\s-]{8,17}$/, 'Enter a valid phone number, e.g. +233 24 123 4567');
+
+export const phoneLoginSchema = z.object({
+  phone: phoneSchema,
+  password: z.string().min(8, 'Use at least 8 characters'),
+});
+export type PhoneLoginInput = z.infer<typeof phoneLoginSchema>;
+
+/** Signup only ever asks for a phone, not email — see phoneToAuthEmail. */
+export const registerSchema = z.object({
   fullName: z.string().min(2, 'Enter your name'),
   businessName: z.string().min(2, 'Enter your business name'),
-  phone: z.string().min(7, 'Enter a valid phone number').optional().or(z.literal('')),
+  phone: phoneSchema,
+  password: z.string().min(8, 'Use at least 8 characters'),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

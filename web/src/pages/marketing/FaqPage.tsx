@@ -36,7 +36,7 @@ const FAQS: FaqItem[] = [
   {
     question: 'What currency am I billed in?',
     answer:
-      'Plan prices are in USD. You can still sell to your own customers in whatever currency you set in Settings — the two are independent.',
+      "We detect your market automatically when you sign up and price your plan accordingly (see Pricing) — no flat USD rate converted on the fly. That same currency is also what you sell to your own customers in. If we ever get your market wrong, contact support and we'll fix it.",
   },
   {
     question: 'Which countries is OrderFlow available in?',

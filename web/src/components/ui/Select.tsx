@@ -4,10 +4,11 @@ import { cn } from '@/utils/cn';
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
+  hint?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, className, id, children, ...rest },
+  { label, error, hint, className, id, children, ...rest },
   ref,
 ) {
   const generated = useId();
@@ -32,7 +33,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       >
         {children}
       </select>
-      {error && <p className="text-xs font-medium text-danger">{error}</p>}
+      {error ? (
+        <p className="text-xs font-medium text-danger">{error}</p>
+      ) : (
+        hint && <p className="text-xs text-muted">{hint}</p>
+      )}
     </div>
   );
 });

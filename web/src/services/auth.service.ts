@@ -9,14 +9,26 @@ import {
 import { serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, userRef } from '@/firebase';
 import { createOrganization } from './org.service';
-import type { LoginInput, OnboardingInput, RegisterInput } from '@/utils/validation';
+import { detectCurrency } from '@/utils/detectCurrency';
+import { phoneToAuthEmail } from '@/utils/phone';
+import type { LoginInput, OnboardingInput, PhoneLoginInput, RegisterInput } from '@/utils/validation';
 
+/** Email-tab sign-in — the path platform staff use, provisioned out-of-band with a real email. */
 export async function signIn({ email, password }: LoginInput) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user;
 }
 
-/** Creates the tenant and the profile that links a Firebase Auth user to it. */
+/** Phone-tab sign-in — what every merchant actually uses. No lookup: the same phone always maps to the same synthetic email. */
+export async function signInWithPhone({ phone, password }: PhoneLoginInput) {
+  return signIn({ email: phoneToAuthEmail(phone), password });
+}
+
+/**
+ * Creates the tenant and the profile that links a Firebase Auth user to it.
+ * The org's market (and therefore plan currency) is never asked for either —
+ * it's guessed from the browser's timezone via detectCurrency().
+ */
 async function provisionTenant(
   user: User,
   { fullName, businessName, phone }: { fullName: string; businessName: string; phone?: string | null },
@@ -25,6 +37,7 @@ async function provisionTenant(
     name: businessName,
     ownerUid: user.uid,
     phone: phone || null,
+    currency: detectCurrency(),
   });
 
   await setDoc(userRef(user.uid), {
@@ -42,12 +55,13 @@ async function provisionTenant(
 }
 
 /**
- * Registration creates three things in order: the auth user, the tenant, and
- * the profile that links them. Cloud Functions will take this over when
- * billing lands; keeping it in one service makes that swap a one-file change.
+ * Signup asks for a phone and a password, nothing else identity-related —
+ * phoneToAuthEmail derives the Firebase Auth email Firestore/Auth still
+ * need internally, so there's no separate account-linking step and no
+ * server round-trip before the account exists.
  */
 export async function registerMerchant(input: RegisterInput) {
-  const { user } = await createUserWithEmailAndPassword(auth, input.email, input.password);
+  const { user } = await createUserWithEmailAndPassword(auth, phoneToAuthEmail(input.phone), input.password);
   await updateProfile(user, { displayName: input.fullName });
   await provisionTenant(user, { fullName: input.fullName, businessName: input.businessName, phone: input.phone });
   return user;

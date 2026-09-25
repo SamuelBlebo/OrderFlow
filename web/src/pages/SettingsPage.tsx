@@ -62,6 +62,7 @@ export function SettingsPage() {
           <PlanCard
             key={planId}
             plan={PLAN_CATALOG[planId]}
+            currency={org!.currency}
             isCurrent={planId === org!.subscription.plan}
             busy={changingPlan === planId}
             onSelect={() => selectPlan(planId)}

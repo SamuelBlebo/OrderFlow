@@ -26,7 +26,7 @@ export function OnboardingPage() {
     setFormError(null);
     try {
       await completeOnboarding(user, values);
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setFormError(toMessage(error));
     }

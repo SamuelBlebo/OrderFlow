@@ -21,7 +21,7 @@ export function SignupPage() {
     setFormError(null);
     try {
       await registerMerchant(values);
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setFormError(toMessage(error));
     }
@@ -32,7 +32,7 @@ export function SignupPage() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setFormError(toMessage(error));
     } finally {
@@ -56,11 +56,13 @@ export function SignupPage() {
           {...register('businessName')}
         />
         <Input
-          label="Email"
-          type="email"
-          autoComplete="email"
-          error={errors.email?.message}
-          {...register('email')}
+          label="Phone number"
+          type="tel"
+          autoComplete="tel"
+          placeholder="+233 24 123 4567"
+          hint="This is how you'll sign in."
+          error={errors.phone?.message}
+          {...register('phone')}
         />
         <Input
           label="Password"
@@ -69,14 +71,6 @@ export function SignupPage() {
           hint="At least 8 characters."
           error={errors.password?.message}
           {...register('password')}
-        />
-        <Input
-          label="Business phone"
-          type="tel"
-          placeholder="+233 20 000 0000"
-          hint="Optional — you can add this later in Settings."
-          error={errors.phone?.message}
-          {...register('phone')}
         />
 
         {formError && (

@@ -2,9 +2,9 @@ export type PlanId = 'free' | 'starter' | 'growth' | 'pro';
 
 /** Mirrors the orderLimit values in web/src/config/plans.ts — keep both in sync. */
 export const ORDER_LIMITS: Record<PlanId, number | null> = {
-  free: 20,
-  starter: 150,
-  growth: 600,
+  free: 15,
+  starter: 75,
+  growth: 300,
   pro: null,
 };
 
