@@ -49,6 +49,21 @@ dashboard changes needed, since this writes the exact schema it already
 reads. The customer gets a real order number back in their confirmation
 message.
 
+**Sprint 6** — merchant self-service WhatsApp onboarding. `POST
+/embedded-signup/exchange` is a second, unrelated endpoint on this same
+Worker: not Meta's traffic, the web app's. Once a merchant finishes Meta's
+Embedded Signup popup, the browser posts the resulting `code` and the
+phone/WABA id here, authenticated with the merchant's own Firebase ID token
+(`src/verifyIdToken.ts` — verified against Google's public keys, no Admin
+SDK). `src/whatsappConnect.ts` then exchanges the code for a token, probes
+the number (display phone, verified name, quality rating), **subscribes
+this app to the WABA's webhook notifications** (without this, Meta never
+forwards that merchant's messages here at all), and claims the number for
+their org — the same one-tenant-per-number transaction guarantee the
+manual-entry path always had. See `PLATFORM_SETUP.md` for the one-time Meta
+App configuration this needs, and `MERCHANT_ONBOARDING.md` for what a
+merchant actually clicks through.
+
 ## One-time setup
 
 **1. Install dependencies**
@@ -82,11 +97,14 @@ npx wrangler secret put WHATSAPP_VERIFY_TOKEN
 # any string you choose — Meta echoes it back once, during webhook setup
 
 npx wrangler secret put META_APP_SECRET
-# from your Meta app's Basic Settings
+# from your Meta app's Basic Settings — used for both webhook signature
+# checks AND the Embedded Signup OAuth exchange
 ```
 
-**5. Check `FIREBASE_PROJECT_ID` in `wrangler.toml`** matches your actual
-Firebase project id (defaults to `orderflow-001`).
+**5. Check `wrangler.toml`'s `[vars]`** — `FIREBASE_PROJECT_ID` matches your
+actual Firebase project id (defaults to `orderflow-001`), and set
+`META_APP_ID` to your Meta App's ID (not secret — public by design, the
+client-side SDK uses the same one).
 
 **6. Deploy**
 
@@ -118,6 +136,8 @@ WHATSAPP_VERIFY_TOKEN=dev-token
 META_APP_SECRET=...
 ```
 
+`META_APP_ID` isn't a secret, so it comes from `wrangler.toml`'s `[vars]` even in local dev — no `.dev.vars` entry needed for it.
+
 `npm run tail` streams live logs from the deployed Worker (`console.log`/`console.error`
 calls in the code above show up here — there is no Cloud Functions log viewer
 for this piece anymore).
@@ -126,18 +146,21 @@ for this piece anymore).
 
 ```
 src/
-  index.ts          fetch handler — GET verification, POST webhook, signature check
+  index.ts          fetch handler — routes Meta traffic ("/") vs. the web app's own ("/embedded-signup/exchange")
   env.ts             Env type for wrangler.toml vars + secrets
-  signature.ts        X-Hub-Signature-256 check (Web Crypto HMAC)
-  firestoreAuth.ts      service-account JWT signing + Google OAuth2 token exchange
-  firestore.ts            REST client: getDoc, setDoc, queryCollection + value converters
-  tenant.ts                 loadWhatsappAccount, loadOrgProfile — same schema as functions/src/tenant.ts
-  catalog.ts                  active products, single-product lookup, name search
-  customers.ts                 find-or-create customer by WhatsApp id, saved name lookup
-  messages.ts                   logs every inbound message
-  sessions.ts                    load/save the per-customer cart + conversation state
-  cart.ts                         merge/remove/set-quantity + cart total/summary formatting
-  orders.ts                        placeOrder — the transaction that turns checkout into a real order
-  whatsapp.ts                       send/list/buttons/markAsRead — same payloads as functions/src/whatsapp/client.ts
-  bot.ts                             routing: catalog, cart management, checkout, order confirmation
+  base64.ts           shared base64/base64url encode+decode (JWT signing AND verification both need these)
+  signature.ts          X-Hub-Signature-256 check (Web Crypto HMAC) — Meta webhook traffic
+  verifyIdToken.ts         Firebase ID token verification via Google's public JWKS — the web app's own traffic
+  firestoreAuth.ts           service-account JWT signing + Google OAuth2 token exchange
+  firestore.ts                 REST client: getDoc, setDoc, queryCollection, transactions + value converters
+  tenant.ts                      loadWhatsappAccount, loadOrgProfile, loadUserProfile
+  whatsappConnect.ts                the Embedded Signup backend: code exchange, probe, WABA subscribe, claim
+  catalog.ts                          active products, single-product lookup, name search
+  customers.ts                          find-or-create customer by WhatsApp id, saved name lookup
+  messages.ts                             logs every inbound message
+  sessions.ts                               load/save the per-customer cart + conversation state
+  cart.ts                                     merge/remove/set-quantity + cart total/summary formatting
+  orders.ts                                     placeOrder — the transaction that turns checkout into a real order
+  whatsapp.ts                                     send/list/buttons/markAsRead — same payloads as functions/src/whatsapp/client.ts
+  bot.ts                                            routing: catalog, cart management, checkout, order confirmation
 ```

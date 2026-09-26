@@ -68,13 +68,6 @@ export const connectWhatsappInput = z.object({
   accessToken: z.string().min(20).max(500),
 });
 
-/** What the Embedded Signup flow hands back client-side — see WhatsAppPage.tsx. */
-export const exchangeEmbeddedSignupInput = z.object({
-  code: z.string().min(10),
-  phoneNumberId: z.string().min(5).max(64),
-  businessAccountId: z.string().min(5).max(64),
-});
-
 export const testMessageInput = z.object({
   to: z.string().regex(/^\+?[0-9]{8,15}$/),
 });

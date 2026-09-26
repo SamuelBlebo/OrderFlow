@@ -9,11 +9,17 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 FIREBASE_PROJECT_ID = "orderflow-001"
 GRAPH_VERSION = "v21.0"
+# Not secret — Meta App IDs are public by design (the client-side FB SDK
+# uses the same one). Needed here as the Embedded Signup OAuth exchange's
+# client_id. From the Meta App Dashboard's Basic Settings.
+META_APP_ID = ""
 
 # Secrets are NOT set here — never commit a secret to this file. Set each
-# with `wrangler secret put <NAME>` (see worker/README.md):
+# with `wrangler secret put <NAME>` (see PLATFORM_SETUP.md):
 #   WHATSAPP_VERIFY_TOKEN     — the string you also put in Meta's webhook config
-#   META_APP_SECRET           — from the Meta app's Basic Settings
+#   META_APP_SECRET           — from the Meta app's Basic Settings (used for both
+#                                webhook signature checks and the Embedded Signup
+#                                OAuth exchange)
 #   FIREBASE_SERVICE_ACCOUNT  — the full JSON key from Firebase console →
 #                                Project settings → Service accounts →
 #                                Generate new private key, pasted as one line

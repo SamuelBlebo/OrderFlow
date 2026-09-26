@@ -6,11 +6,13 @@
  * the implementations sit in their own modules.
  *
  * The inbound WhatsApp webhook (verification handshake, signature check, bot
- * engine) is NOT here — it moved to a Cloudflare Worker (see worker/), which
- * is now the only thing that answers Meta's traffic. What stays here is
- * everything Firestore-trigger-based (no Worker equivalent) or
- * dashboard-facing: connecting/disconnecting a number, sending a broadcast
- * or test message, and reacting to an order's status changing.
+ * engine) AND the Embedded Signup connect flow are NOT here — both run on a
+ * Cloudflare Worker (see worker/), which is the only thing that talks to
+ * Meta directly for WhatsApp. What stays here is everything
+ * Firestore-trigger-based (no Worker equivalent) or dashboard-facing:
+ * disconnecting a number, sending a broadcast or test message, and reacting
+ * to an order's status changing. `connectWhatsapp` (manual credential entry)
+ * also stays — a lower-level fallback nothing in the UI calls anymore.
  */
 import { onRequest } from 'firebase-functions/v2/https';
 
@@ -20,7 +22,6 @@ export {
   connectWhatsapp,
   disconnectWhatsapp,
   sendTestMessage,
-  exchangeEmbeddedSignupCode,
 } from './http/organizations';
 export { sendBroadcast, sendReply } from './http/customers';
 export { changePlan, billingWebhook } from './http/billing';

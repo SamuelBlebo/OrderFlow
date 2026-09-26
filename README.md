@@ -50,11 +50,14 @@ identical tenant data.
   `functions/src/http/customers.ts`'s `sendReply`.
 - **Customers** — built from order history automatically, with repeat-customer stats, notes and
   broadcast promotions.
-- **WhatsApp connection** (`/whatsapp`) — connect a number either by pasting credentials from Meta
-  Business Suite (works with no extra Meta App setup beyond what "Deploying to production" already
-  asks for), or with a one-click "Connect with Facebook" button using Meta's Embedded Signup — the
-  latter only appears once `VITE_META_APP_ID`/`VITE_META_CONFIG_ID` are set (see `web/.env.example`),
-  since it needs a Meta App configured for that flow. Disconnect and a test-message button included.
+- **WhatsApp connection** (`/whatsapp`) — fully self-service. A merchant clicks **Connect WhatsApp**,
+  completes Meta's Embedded Signup popup, and is connected — no phone number ID, WABA ID, or access
+  token ever shown to them. The callback (code exchange, WABA webhook subscription, Firestore write)
+  runs entirely on the Cloudflare Worker (`worker/src/whatsappConnect.ts`), authenticated by the
+  merchant's own Firebase ID token (`worker/src/verifyIdToken.ts` — verified against Google's public
+  keys, no Admin SDK). The page shows a calm "not set up yet" state until the platform owner has done
+  the one-time Meta App configuration — see `PLATFORM_SETUP.md`. A lower-level manual-entry Cloud
+  Function (`connectWhatsapp`) still exists for support/scripted use, but nothing in the UI calls it.
 - **Analytics** — daily/weekly/monthly revenue and order charts, AOV, returning customers, best
   sellers.
 - **Billing** — Free / Starter / Growth / Pro plans (`web/src/config/plans.ts`), usage tracked per
@@ -239,10 +242,11 @@ cd ..
 firebase deploy --only hosting
 ```
 
-`VITE_META_APP_ID`/`VITE_META_CONFIG_ID` in that same `.env.local` are optional — set both only if
-you want the one-click "Connect with Facebook" button on `/whatsapp`; leave them blank and merchants
-just get the manual connect form (works either way, no missing feature, just an extra couple of
-fields to paste).
+`VITE_META_APP_ID`/`VITE_META_CONFIGURATION_ID`/`VITE_WHATSAPP_WORKER_URL` in that same `.env.local`
+are what makes `/whatsapp`'s **Connect WhatsApp** button work at all — it's the only way in now, no
+manual-entry fallback in the UI. Leave them blank during early development and the page shows a calm
+"not set up yet" message instead of a broken button. See `PLATFORM_SETUP.md` for the one-time setup
+that gets you real values for all three.
 
 **7. Provision your first platform admin**
 
@@ -293,9 +297,11 @@ default password, both overridable via `DEMO_EMAIL`/`DEMO_PASSWORD` env vars) wh
 `PRODUCTION_CHECKLIST.md` is the actual step-by-step — accounts needed, deploy order, how to verify
 the core loop actually works end-to-end (not just that it deploys), optional integrations, what
 monitoring you get for free vs. what needs `VITE_SENTRY_DSN`, and enabling Firestore backups (a GCP
-project setting, not something this repo can turn on for you). `docs/admin-guide.md` covers
-operating `/admin` once you're live — provisioning staff, suspending a merchant, reading the audit
-log.
+project setting, not something this repo can turn on for you). `PLATFORM_SETUP.md` is the one-time
+Meta App configuration that makes self-service WhatsApp connect work at all; `MERCHANT_ONBOARDING.md`
+is what a merchant actually clicks through, and doubles as your own testing checklist.
+`docs/admin-guide.md` covers operating `/admin` once you're live — provisioning staff, suspending a
+merchant, reading the audit log.
 
 ## What is not built yet
 

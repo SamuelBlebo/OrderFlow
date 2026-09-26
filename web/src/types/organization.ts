@@ -46,6 +46,8 @@ export interface WhatsAppAccount {
   greeting: string;
   /** Written with FieldValue.serverTimestamp() — a real Timestamp, not a string. */
   connectedAt: Timestamp | null;
+  /** Meta's GREEN/YELLOW/RED/UNKNOWN rating for this number — absent on a connection made before this field existed. */
+  qualityRating: string | null;
 }
 
 export interface Organization extends Timestamps {

@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Timestamp } from 'firebase/firestore';
-import { Badge, Button, Card, CardBody, Input } from '@/components/ui';
+import { Badge, Button, Card, CardBody } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import {
-  connectWhatsapp,
-  disconnectWhatsapp,
-  exchangeEmbeddedSignupCode,
-  sendTestMessage,
-} from '@/services';
+import { disconnectWhatsapp, exchangeEmbeddedSignupCode, sendTestMessage } from '@/services';
+import type { WhatsAppAccount } from '@/types';
+import { cn } from '@/utils/cn';
 import { env } from '@/utils/env';
 import { toMessage } from '@/utils/errors';
 import { formatDate } from '@/utils/format';
 
-const embeddedSignupConfigured = Boolean(env.meta.appId && env.meta.configId);
+/**
+ * A merchant never sees a technical field here — no phone number ID, no
+ * WABA ID, no access token. The only way in is Meta's Embedded Signup
+ * (see worker/src/whatsappConnect.ts for what happens after the popup
+ * closes); a lower-level manual-entry path still exists server-side for
+ * support/scripted use (functions/src/http/organizations.ts's
+ * connectWhatsapp) but nothing in this page calls it.
+ */
+const embeddedSignupConfigured = Boolean(env.meta.appId && env.meta.configId && env.whatsappWorkerUrl);
 
 export function WhatsAppPage() {
   const { org } = useAuth();
@@ -24,39 +28,27 @@ export function WhatsAppPage() {
     <>
       <PageHeader title="WhatsApp" description="The number this business takes orders on." />
       <Card>
-        <CardBody className="space-y-5 p-5">
-          {whatsapp.connected ? (
-            <ConnectedState phone={whatsapp.displayPhoneNumber} verifiedName={whatsapp.verifiedName} connectedAt={whatsapp.connectedAt} />
-          ) : (
-            <ConnectFlow />
-          )}
+        <CardBody className="p-6">
+          {whatsapp.connected ? <ConnectedState whatsapp={whatsapp} /> : <NotConnectedState orgId={org!.id} />}
         </CardBody>
       </Card>
     </>
   );
 }
 
-function ConnectedState({
-  phone,
-  verifiedName,
-  connectedAt,
-}: {
-  phone: string | null;
-  verifiedName: string | null;
-  connectedAt: Timestamp | null;
-}) {
+/* -------------------------------- Connected -------------------------------- */
+
+function ConnectedState({ whatsapp }: { whatsapp: WhatsAppAccount }) {
   const toast = useToast();
-  const [testPhone, setTestPhone] = useState('');
   const [testing, setTesting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
-  const sendTest = async () => {
-    if (!testPhone.trim()) return;
+  const runTest = async () => {
+    if (!whatsapp.displayPhoneNumber) return;
     setTesting(true);
     try {
-      await sendTestMessage(testPhone.trim());
-      toast.success('Test message sent.');
+      await sendTestMessage(whatsapp.displayPhoneNumber);
+      toast.success('Test message sent — check your WhatsApp.');
     } catch (err) {
       toast.error(toMessage(err));
     } finally {
@@ -65,6 +57,10 @@ function ConnectedState({
   };
 
   const disconnect = async () => {
+    const confirmed = window.confirm(
+      "Disconnect this WhatsApp number? Customers won't be able to order until you connect again.",
+    );
+    if (!confirmed) return;
     setDisconnecting(true);
     try {
       await disconnectWhatsapp();
@@ -73,138 +69,191 @@ function ConnectedState({
       toast.error(toMessage(err));
     } finally {
       setDisconnecting(false);
-      setConfirmDisconnect(false);
     }
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-brand/10 text-brand">Connected</Badge>
-            {verifiedName && <span className="text-sm font-semibold text-ink">{verifiedName}</span>}
-          </div>
-          <p className="mt-1 text-lg font-bold text-ink">{phone}</p>
-          <p className="text-xs text-muted">Connected {formatDate(connectedAt)}</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-sm text-center">
+      <Badge className="bg-brand/10 text-brand">🟢 WhatsApp Connected</Badge>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Connected Number</p>
+      <p className="text-2xl font-bold text-ink">{whatsapp.displayPhoneNumber}</p>
+      {whatsapp.connectedAt && (
+        <p className="mt-1 text-xs text-muted">Since {formatDate(whatsapp.connectedAt)}</p>
+      )}
 
-      <div className="rounded-xl border border-line p-3">
-        <p className="text-xs font-semibold text-muted">Send a test message</p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <Input
-            aria-label="Test phone number"
-            placeholder="+233 24 000 0000"
-            value={testPhone}
-            onChange={(e) => setTestPhone(e.target.value)}
-          />
-          <Button type="button" loading={testing} disabled={!testPhone.trim()} onClick={sendTest}>
-            Send
+      <div className="mt-6 space-y-3 text-left">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">Test Connection</p>
+            <p className="text-xs text-muted">Sends a message to your own number.</p>
+          </div>
+          <Button type="button" size="sm" loading={testing} onClick={runTest}>
+            Test
           </Button>
         </div>
-      </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-danger/30 bg-danger/5 p-3">
-        <div>
-          <p className="text-sm font-semibold text-ink">Disconnect this number</p>
-          <p className="text-xs text-muted">Customers won't be able to order until you connect again.</p>
+        <div className="rounded-xl border border-line p-3">
+          <p className="text-sm font-semibold text-ink">Quality Rating</p>
+          <p className="mt-1 text-xs text-muted">
+            {whatsapp.qualityRating
+              ? qualityRatingLabel(whatsapp.qualityRating)
+              : 'Not available yet — Meta rates a number after it sends a few messages.'}
+          </p>
         </div>
-        {confirmDisconnect ? (
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmDisconnect(false)}>
-              Cancel
-            </Button>
-            <Button type="button" variant="danger" size="sm" loading={disconnecting} onClick={disconnect}>
-              Confirm
-            </Button>
+
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">Disconnect</p>
+            <p className="text-xs text-muted">Orders already placed stay in your dashboard.</p>
           </div>
-        ) : (
-          <Button type="button" variant="danger" size="sm" onClick={() => setConfirmDisconnect(true)}>
+          <Button type="button" variant="danger" size="sm" loading={disconnecting} onClick={disconnect}>
             Disconnect
           </Button>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-function ConnectFlow() {
-  const [manual, setManual] = useState(!embeddedSignupConfigured);
+function qualityRatingLabel(rating: string): string {
+  const labels: Record<string, string> = {
+    GREEN: 'Good standing',
+    YELLOW: 'Needs attention — messaging limits may apply',
+    RED: 'At risk — review your recent messages',
+    UNKNOWN: 'Not rated yet',
+  };
+  return labels[rating] ?? rating;
+}
+
+/* ------------------------------ Not connected ------------------------------ */
+
+type ConnectStep = 'account' | 'verify' | 'finalizing';
+
+function NotConnectedState({ orgId }: { orgId: string }) {
+  const toast = useToast();
+  const [step, setStep] = useState<ConnectStep | null>(null);
+
+  const finish = async (code: string, payload: EmbeddedSignupPayload) => {
+    setStep('finalizing');
+    try {
+      await exchangeEmbeddedSignupCode({ code, organizationId: orgId, ...payload });
+      toast.success('WhatsApp connected.');
+      // Deliberately no local "done" state — org.whatsapp.connected flips via
+      // the live Firestore listener in useAuth, which swaps this whole
+      // component out for ConnectedState on its own.
+    } catch (err) {
+      toast.error(toMessage(err));
+      setStep(null);
+    }
+  };
+
+  // Meta's postMessage (merchant picked/verified a number inside the popup)
+  // and FB.login's own callback (the auth code) arrive independently — this
+  // is the closest honest mapping from those two real signals to the
+  // 3-step UI: "Verify Number" starts the moment we have the phone/WABA id,
+  // "Finalizing" once both are ready and we call our own backend.
+  const registerCode = useEmbeddedSignupPayload((code, payload) => {
+    setStep((current) => current ?? 'verify');
+    void finish(code, payload);
+  });
+
+  const start = async () => {
+    if (!embeddedSignupConfigured) {
+      toast.error('WhatsApp connect is not set up yet — contact support.');
+      return;
+    }
+    setStep('account');
+    try {
+      await loadFacebookSdk(env.meta.appId);
+      window.FB?.login(
+        (response) => {
+          const code = response.authResponse?.code;
+          if (code) registerCode(code);
+          else setStep(null);
+        },
+        {
+          config_id: env.meta.configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: { feature: 'whatsapp_embedded_signup', sessionInfoVersion: '3' },
+        },
+      );
+    } catch (err) {
+      toast.error(toMessage(err));
+      setStep(null);
+    }
+  };
+
+  if (step) return <ConnectingProgress step={step} />;
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted">Connect the WhatsApp Business number your customers will message.</p>
+    <div className="mx-auto max-w-sm text-center">
+      <h2 className="text-xl font-bold text-ink">Connect Your WhatsApp</h2>
+      <p className="mt-2 text-sm text-muted">
+        Start receiving customer orders on your own WhatsApp number in about 2 minutes.
+      </p>
 
-      {embeddedSignupConfigured && !manual && (
-        <div className="space-y-3">
-          <EmbeddedSignupButton />
-          <button type="button" onClick={() => setManual(true)} className="text-xs text-muted underline">
-            I'll paste my credentials manually instead
-          </button>
-        </div>
+      <ul className="mt-5 space-y-2 text-left text-sm text-ink">
+        <li className="flex items-center gap-2">
+          <span className="text-brand" aria-hidden>✓</span> WhatsApp Business number
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="text-brand" aria-hidden>✓</span> Facebook account
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="text-brand" aria-hidden>✓</span> Phone nearby for OTP verification
+        </li>
+      </ul>
+
+      {embeddedSignupConfigured ? (
+        <Button type="button" fullWidth className="mt-6" onClick={start}>
+          Connect WhatsApp
+        </Button>
+      ) : (
+        <p className="mt-6 rounded-xl bg-raised px-3 py-2 text-sm text-muted">
+          WhatsApp connect isn't set up yet — check back soon.
+        </p>
       )}
 
-      {manual && (
-        <div className="space-y-3">
-          <ManualConnectForm />
-          {embeddedSignupConfigured && (
-            <button type="button" onClick={() => setManual(false)} className="text-xs text-muted underline">
-              Use one-click connect instead
-            </button>
-          )}
-        </div>
-      )}
+      <p className="mt-3 text-xs text-muted">We never ask you to copy API keys or tokens.</p>
     </div>
   );
 }
 
-function ManualConnectForm() {
-  const toast = useToast();
-  const [phoneNumberId, setPhoneNumberId] = useState('');
-  const [businessAccountId, setBusinessAccountId] = useState('');
-  const [accessToken, setAccessToken] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const canSubmit = phoneNumberId.trim() && businessAccountId.trim() && accessToken.trim();
-
-  const submit = async () => {
-    if (!canSubmit) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await connectWhatsapp({
-        phoneNumberId: phoneNumberId.trim(),
-        businessAccountId: businessAccountId.trim(),
-        accessToken: accessToken.trim(),
-      });
-      toast.success('WhatsApp connected.');
-    } catch (err) {
-      setError(toMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  };
+function ConnectingProgress({ step }: { step: ConnectStep }) {
+  const steps: { id: ConnectStep; label: string }[] = [
+    { id: 'account', label: 'Connect Account' },
+    { id: 'verify', label: 'Verify Number' },
+    { id: 'finalizing', label: 'Finalizing' },
+  ];
+  const currentIndex = steps.findIndex((s) => s.id === step);
 
   return (
-    <div className="space-y-3 rounded-xl border border-line p-3">
-      <p className="text-xs font-semibold text-muted">
-        From Meta Business Suite &gt; WhatsApp Accounts, or your System User's API setup.
-      </p>
-      <Input label="Phone number ID" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} />
-      <Input label="WhatsApp Business Account ID" value={businessAccountId} onChange={(e) => setBusinessAccountId(e.target.value)} />
-      <Input
-        label="Access token"
-        type="password"
-        hint="A permanent System User token, not the 24-hour temporary one."
-        value={accessToken}
-        onChange={(e) => setAccessToken(e.target.value)}
-      />
-      {error && <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm font-medium text-danger">{error}</p>}
-      <Button type="button" fullWidth loading={busy} disabled={!canSubmit} onClick={submit}>
-        Connect
-      </Button>
+    <div className="mx-auto max-w-sm text-center">
+      <h2 className="text-xl font-bold text-ink">Connecting…</h2>
+      <p className="mt-2 text-sm text-muted">Finish inside the Facebook window that just opened.</p>
+      <ol className="mt-6 space-y-3 text-left">
+        {steps.map((s, index) => {
+          const done = index < currentIndex;
+          const active = index === currentIndex;
+          return (
+            <li key={s.id} className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className={cn(
+                  'grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold',
+                  done && 'bg-brand text-white',
+                  active && !done && 'border-2 border-brand text-brand',
+                  !active && !done && 'border border-line text-muted',
+                )}
+              >
+                {done ? '✓' : index + 1}
+              </span>
+              <span className={cn('text-sm', active ? 'font-semibold text-ink' : 'text-muted')}>{s.label}</span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
@@ -289,52 +338,4 @@ function useEmbeddedSignupPayload(onReady: (code: string, payload: EmbeddedSignu
     codeRef.current = code;
     if (payloadRef.current) onReady(code, payloadRef.current);
   };
-}
-
-function EmbeddedSignupButton() {
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-
-  const finish = async (code: string, payload: EmbeddedSignupPayload) => {
-    setBusy(true);
-    try {
-      await exchangeEmbeddedSignupCode({ code, ...payload });
-      toast.success('WhatsApp connected.');
-    } catch (err) {
-      toast.error(toMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const setCode = useEmbeddedSignupPayload(finish);
-
-  const start = async () => {
-    setBusy(true);
-    try {
-      await loadFacebookSdk(env.meta.appId);
-      window.FB?.login(
-        (response) => {
-          const code = response.authResponse?.code;
-          if (code) setCode(code);
-          else setBusy(false);
-        },
-        {
-          config_id: env.meta.configId,
-          response_type: 'code',
-          override_default_response_type: true,
-          extras: { feature: 'whatsapp_embedded_signup', sessionInfoVersion: '3' },
-        },
-      );
-    } catch (err) {
-      toast.error(toMessage(err));
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Button type="button" fullWidth loading={busy} onClick={start}>
-      Connect with Facebook
-    </Button>
-  );
 }

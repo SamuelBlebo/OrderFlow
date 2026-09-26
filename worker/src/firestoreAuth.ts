@@ -1,4 +1,5 @@
 import type { Env } from './env';
+import { base64ToArrayBuffer, base64url, base64urlFromBuffer } from './base64';
 
 interface ServiceAccount {
   client_email: string;
@@ -74,21 +75,4 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
     false,
     ['sign'],
   );
-}
-
-function base64url(input: string): string {
-  return btoa(input).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64urlFromBuffer(buffer: ArrayBuffer): string {
-  let binary = '';
-  for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
 }

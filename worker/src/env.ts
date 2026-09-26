@@ -10,4 +10,6 @@ export interface Env {
   FIREBASE_SERVICE_ACCOUNT: string;
   WHATSAPP_VERIFY_TOKEN: string;
   META_APP_SECRET: string;
+  /** Not secret — used as the Embedded Signup OAuth exchange's client_id (see whatsappConnect.ts). Same id the web app's FB SDK uses. */
+  META_APP_ID: string;
 }

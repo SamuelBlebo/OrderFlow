@@ -12,6 +12,23 @@ export async function loadWhatsappAccount(env: Env, phoneNumberId: string): Prom
   return data ? (data as unknown as WhatsappAccount) : null;
 }
 
+export interface UserProfile {
+  orgId: string;
+  role: string;
+}
+
+/**
+ * `users/{uid}` — the same doc Firestore rules' profile() helper and Cloud
+ * Functions' requireOrg/requireAdmin read, so "who is this uid, and are they
+ * allowed to change this org's WhatsApp connection" means the same thing
+ * here as it does everywhere else in the app.
+ */
+export async function loadUserProfile(env: Env, uid: string): Promise<UserProfile | null> {
+  const data = await getDoc(env, `users/${uid}`);
+  if (!data?.orgId) return null;
+  return { orgId: data.orgId as string, role: (data.role as string) ?? 'staff' };
+}
+
 export async function loadOrgProfile(env: Env, orgId: string): Promise<OrgProfile> {
   const data = (await getDoc(env, `organizations/${orgId}`)) ?? {};
   return {
